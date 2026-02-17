@@ -10,7 +10,7 @@ import traceback
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def run_web():
 
 # --- توکن و آیدی ادمین ---
 TOKEN = '8305364438:AAGAT39wGQey9tzxMVafEiRRXz1eGNvpfhY'
-ADMIN_ID = 1374345602
+ADMIN_ID = 7935344235
 
 # --- مسیر دیتابیس ---
 DB_FILE = 'data.json'
@@ -649,7 +649,7 @@ def handle_msg(update, context):
                     update.message.reply_text("❌ خطا")
                 return
 
-            # دریافت کانفیگ
+            # ✅ دریافت کانفیگ با متن حرفه‌ای و لینک mono (قابل کپی)
             if step == 'send_config':
                 target = user_data[uid]['target']
                 name = user_data[uid]['name']
@@ -666,19 +666,32 @@ def handle_msg(update, context):
                 db["users"][str(target)]["purchases"].append(service_record)
                 save_db(db)
                 
+                # ✅ متن حرفه‌ای با لینک mono
                 msg = (
-                    f"🎉 سرویس شما آماده است\n"
-                    f"👤 {name}\n"
-                    f"📦 حجم: {vol}\n"
-                    f"🔗 {update.message.text}\n"
-                    f"📚 {db['guide']}"
+                    f"🎉 <b>سرویس شما آماده است!</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"👤 <b>نام کاربری سرویس :</b> {name}\n"
+                    f"⏳ <b>مدت زمان:</b> نامحدود\n"
+                    f"🗜 <b>حجم سرویس:</b> {vol}\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"<b>لینک اتصال:</b>\n"
+                    f"<code>{update.message.text}</code>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"🧑‍🦯 شما میتوانید شیوه اتصال را با فشردن دکمه زیر و انتخاب سیستم عامل خود را دریافت کنید\n\n"
+                    f"🟢 اگر لینک ساب شما داخل برنامه اضافه نشد، ربات @URLExtractor_Bot به شما کمک می‌کنه لینک‌ها رو استخراج کنید.\n\n"
+                    f"🔵 کافیه لینک ساب خودتون رو بهش بدید تا تمامی کانفیگ‌هاش رو براتون خروجی بگیره."
                 )
                 
+                # دکمه آموزش اتصال
+                btn = InlineKeyboardMarkup([[
+                    InlineKeyboardButton("📚 آموزش اتصال", url=f"https://t.me/{db['guide'].replace('@', '')}")
+                ]])
+                
                 try:
-                    context.bot.send_message(int(target), msg)
+                    context.bot.send_message(int(target), msg, parse_mode='HTML', reply_markup=btn)
                     update.message.reply_text("✅ کانفیگ ارسال شد")
-                except:
-                    update.message.reply_text("❌ خطا در ارسال")
+                except Exception as e:
+                    update.message.reply_text(f"❌ خطا در ارسال: {e}")
                 
                 user_data[uid] = {}
                 return
