@@ -28,7 +28,7 @@ def run_web():
 
 # --- توکن و آیدی ادمین ---
 TOKEN = '8305364438:AAGAT39wGQey9tzxMVafEiRRXz1eGNvpfhY'
-ADMIN_ID = 7935344235
+ADMIN_ID = 1374345602
 
 # --- مسیر دیتابیس ---
 DB_FILE = 'data.json'
