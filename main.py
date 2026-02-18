@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from flask import Flask
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from threading import Thread
 from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
@@ -15,16 +15,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- وب سرور (برای Health Check) ---
-app_web = Flask(__name__)
-
-@app_web.route('/')
-def home():
-    return "✅ VPN Bot is Running!", 200
+# --- وب سرور ساده (بدون Flask) ---
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b"✅ VPN Bot is Running!")
+    
+    def log_message(self, format, *args):
+        # غیرفعال کردن لاگ‌های اضافی وب سرور
+        pass
 
 def run_web():
     port = int(os.environ.get('PORT', 8080))
-    app_web.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    logger.info(f"✅ Web server started on port {port}")
+    server.serve_forever()
 
 # --- توکن و آیدی ادمین ---
 TOKEN = '8305364438:AAGAT39wGQey9tzxMVafEiRRXz1eGNvpfhY'
@@ -163,7 +170,6 @@ def back_btn():
 
 def get_admin_menu():
     """منوی مدیریت"""
-    texts = db["texts"]
     kb = [
         ['➕ پلن جدید', '➖ حذف پلن'],
         ['💳 ویرایش کارت', '📝 ویرایش متن‌ها'],
@@ -227,7 +233,6 @@ def start(update, context):
                     db["users"][inviter_id]["invited_users"] = []
                 if uid not in db["users"][inviter_id]["invited_users"]:
                     db["users"][inviter_id]["invited_users"].append(uid)
-                    # به ازای هر دعوت، 1 روز به سرویس اضافه می‌شود (این بخش رو می‌تونی بعداً تکمیل کنی)
         
         # ثبت کاربر جدید
         if uid not in db["users"]:
@@ -462,7 +467,7 @@ def handle_msg(update, context):
                 )
                 return
 
-            if text == 'شماره کارت':
+            if text == 'شماره کارт':
                 user_data[uid] = {'step': 'card_num'}
                 update.message.reply_text("💳 شماره کارت 16 رقمی را بفرستید:", reply_markup=back_btn())
                 return
@@ -783,7 +788,7 @@ def handle_msg(update, context):
                     update.message.reply_text(f"❌ خطا در افزودن پلن: {e}")
                 return
 
-            # --- دریافت کانفیگ برای ارسال ---
+            # --- دریافت کانفیг برای ارسال ---
             if step == 'send_config':
                 target = user_data[uid]['target']
                 name = user_data[uid]['name']
@@ -857,7 +862,7 @@ def handle_msg(update, context):
             'دعوت دوستان': 'invite',
             'اطلاعات پرداخت': 'payment_info',
             'تعمیرات': 'maintenance',
-            'کانفیگ': 'config_sent',
+            'کانفیг': 'config_sent',
             'دکمه خرید': 'btn_buy',
             'دکمه تست': 'btn_test',
             'دکمه سرویس‌ها': 'btn_services',
@@ -1053,7 +1058,7 @@ def handle_cb(update, context):
                     context.bot.send_message(uid, f"❌ خطا: {e}")
             return
 
-        # --- ارسال کانفیگ توسط ادمین (برای خرید) ---
+        # --- ارسال کانفیг توسط ادمین (برای خرید) ---
         elif query.data.startswith("send_"):
             if str(uid) == str(ADMIN_ID):
                 try:
@@ -1080,7 +1085,7 @@ def handle_cb(update, context):
                         'vol': vol
                     }
                     
-                    context.bot.send_message(uid, f"📨 لطفاً کانفیگ {name} را ارسال کنید:")
+                    context.bot.send_message(uid, f"📨 لطفاً کانفیг {name} را ارسال کنید:")
                     try:
                         query.message.edit_reply_markup(reply_markup=None)
                     except:
@@ -1128,7 +1133,7 @@ def handle_photo(update, context):
             )
             
             btn = InlineKeyboardMarkup([[
-                InlineKeyboardButton("✅ ارسال کانفیگ", callback_data=f"send_{uid}")
+                InlineKeyboardButton("✅ ارسال کانفیг", callback_data=f"send_{uid}")
             ]])
             
             context.bot.send_photo(
@@ -1161,7 +1166,6 @@ def main():
         # اجرای وب سرور در ترد جداگانه
         web_thread = Thread(target=run_web, daemon=True)
         web_thread.start()
-        logger.info("✅ Web server started")
         
         # ساخت ربات
         updater = Updater(TOKEN, use_context=True)
