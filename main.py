@@ -15,13 +15,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- وب سرور ساده (بدون Flask) ---
+# --- وب سرور ساده (رفع مشکل یونیکد) ---
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
-        self.send_header('Content-type', 'text/html')
+        self.send_header('Content-type', 'text/html; charset=utf-8')
         self.end_headers()
-        self.wfile.write(b"✅ VPN Bot is Running!")
+        # ارسال متن به صورت utf-8
+        self.wfile.write("✅ VPN Bot is Running!".encode('utf-8'))
     
     def log_message(self, format, *args):
         # غیرفعال کردن لاگ‌های اضافی وب سرور
@@ -467,7 +468,7 @@ def handle_msg(update, context):
                 )
                 return
 
-            if text == 'شماره کارт':
+            if text == 'شماره کارت':
                 user_data[uid] = {'step': 'card_num'}
                 update.message.reply_text("💳 شماره کارت 16 رقمی را بفرستید:", reply_markup=back_btn())
                 return
@@ -788,7 +789,7 @@ def handle_msg(update, context):
                     update.message.reply_text(f"❌ خطا در افزودن پلن: {e}")
                 return
 
-            # --- دریافت کانفیг برای ارسال ---
+            # --- دریافت کانفیگ برای ارسال ---
             if step == 'send_config':
                 target = user_data[uid]['target']
                 name = user_data[uid]['name']
@@ -862,7 +863,7 @@ def handle_msg(update, context):
             'دعوت دوستان': 'invite',
             'اطلاعات پرداخت': 'payment_info',
             'تعمیرات': 'maintenance',
-            'کانفیг': 'config_sent',
+            'کانفیگ': 'config_sent',
             'دکمه خرید': 'btn_buy',
             'دکمه تست': 'btn_test',
             'دکمه سرویس‌ها': 'btn_services',
@@ -1058,7 +1059,7 @@ def handle_cb(update, context):
                     context.bot.send_message(uid, f"❌ خطا: {e}")
             return
 
-        # --- ارسال کانفیг توسط ادمین (برای خرید) ---
+        # --- ارسال کانفیگ توسط ادمین (برای خرید) ---
         elif query.data.startswith("send_"):
             if str(uid) == str(ADMIN_ID):
                 try:
@@ -1085,7 +1086,7 @@ def handle_cb(update, context):
                         'vol': vol
                     }
                     
-                    context.bot.send_message(uid, f"📨 لطفاً کانفیг {name} را ارسال کنید:")
+                    context.bot.send_message(uid, f"📨 لطفاً کانفیگ {name} را ارسال کنید:")
                     try:
                         query.message.edit_reply_markup(reply_markup=None)
                     except:
@@ -1133,7 +1134,7 @@ def handle_photo(update, context):
             )
             
             btn = InlineKeyboardMarkup([[
-                InlineKeyboardButton("✅ ارسال کانفیг", callback_data=f"send_{uid}")
+                InlineKeyboardButton("✅ ارسال کانفیگ", callback_data=f"send_{uid}")
             ]])
             
             context.bot.send_photo(
