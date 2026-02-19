@@ -7,6 +7,8 @@ from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMa
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
 from datetime import datetime
 import traceback
+import sys
+import signal
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
@@ -34,7 +36,7 @@ def run_web():
 
 # --- توکن و آیدی ادمین ---
 TOKEN = '8305364438:AAGAT39wGQey9tzxMVafEiRRXz1eGNvpfhY'
-ADMIN_ID = 7935344235
+ADMIN_ID = 1374345602
 
 # --- مسیر دیتابیس ---
 DB_FILE = 'data.json'
@@ -739,7 +741,7 @@ def handle_msg(update, context):
                     "4️⃣ بعد `texts_backup.json` (متن‌ها)\n"
                     "5️⃣ بعد `menu_backup.json` (منوی اصلی)\n"
                     "6️⃣ آخر `settings_backup.json` (تنظیمات)\n\n"
-                    "⚠️ **نکته مهم:** بعد از بازیابی، لطفاً ربات را از طریق Railway ری‌استارت کنید."
+                    "⚠️ **نکته مهم:** بعد از اتمام بازیابی، ربات به طور خودکار ری‌استارت خواهد شد."
                 )
                 update.message.reply_text(msg, parse_mode='Markdown')
                 return
@@ -1331,7 +1333,7 @@ def handle_document(update, context):
                 db["bot_status"] = backup_data["bot_status"]
             user_data[uid]['restore_files']['settings'] = True
             next_file = 'COMPLETE'
-            msg = "✅ تنظیمات بازیابی شد.\n🎉 همه فایل‌ها با موفقیت بازیابی شدن!"
+            msg = "✅ تنظیمات بازیابی شد.\n🎉 همه فایل‌ها با موفقیت بازیابی شدن! در حال ری‌استارت ربات..."
         
         os.remove(document.file_name)
         
@@ -1339,10 +1341,13 @@ def handle_document(update, context):
             save_db(db)
             update.message.reply_text(
                 "✅ **بازیابی با موفقیت کامل شد!**\n"
-                "🔄 لطفاً ربات را از طریق داشبورد Railway ری‌استارت کنید.",
+                "🔄 ربات در حال ری‌استارت خودکار است...",
                 parse_mode='Markdown'
             )
             user_data[uid] = {}
+            # ری‌استارت خودکار ربات
+            logger.info("🔄 Automatic restart after backup restore...")
+            os._exit(0)
             return
         else:
             user_data[uid]['expected_file'] = next_file
@@ -1355,6 +1360,14 @@ def handle_document(update, context):
 def main():
     try:
         logger.info("🚀 Starting bot...")
+        
+        # ثبت signal handler برای ری‌استارت تمیز
+        def signal_handler(sig, frame):
+            logger.info("🛑 Stopping bot...")
+            sys.exit(0)
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
         
         web_thread = Thread(target=run_web, daemon=True)
         web_thread.start()
