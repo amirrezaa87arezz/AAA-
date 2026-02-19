@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- وب سرور ساده (رفع مشکل یونیکد) ---
+# --- وب سرور ساده ---
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -73,7 +73,6 @@ DEFAULT_MENU_BUTTONS = [
 
 # --- متن‌های پیش‌فرض برای همه بخش‌ها ---
 DEFAULT_TEXTS = {
-    # متن‌های اصلی
     "welcome": "🔰 به {brand} خوش آمدید\n\n✅ فروش ویژه فیلترشکن\n✅ پشتیبانی 24 ساعته\n✅ نصب آسان",
     "support": "🆘 پشتیبانی: {support}",
     "guide": "📚 آموزش: {guide}",
@@ -96,7 +95,6 @@ def load_db():
                 data = json.load(f)
                 logger.info("✅ Database loaded successfully")
                 
-                # اضافه کردن فیلدهای جدید اگر وجود نداشتند
                 if "force_join" not in data:
                     data["force_join"] = {"enabled": False, "channel_id": "", "channel_link": "", "channel_username": ""}
                 if "bot_status" not in data:
@@ -146,9 +144,8 @@ def save_db(data):
 db = load_db()
 user_data = {}
 
-# --- منوها ---
 def get_main_menu(uid):
-    """منوی اصلی کاربر - کاملاً قابل تنظیم"""
+    """منوی اصلی کاربر"""
     buttons = db["menu_buttons"]
     kb = []
     row = []
@@ -175,6 +172,7 @@ def get_admin_menu():
         ['👤 ویرایش پشتیبان', '📢 ویرایش کانال'],
         ['🔒 عضویت اجباری', '🏷 ویرایش برند'],
         ['🔛 وضعیت ربات', '📊 آمار'],
+        ['📦 بکاپ‌گیری', '🔄 بازیابی بکاپ'],
         ['📨 ارسال همگانی', db["texts"]["back_button"]]
     ]
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
@@ -283,17 +281,14 @@ def handle_msg(update, context):
             start(update, context)
             return
 
-        # --- دستورات اسلش ---
         if text == '/start':
             start(update, context)
             return
         
-        # بررسی دکمه‌های منوی اصلی
         for btn in db["menu_buttons"]:
             if text == btn["text"]:
                 action = btn["action"]
                 if action == "buy":
-                    # خرید اشتراک
                     categories = list(db["categories"].keys())
                     keyboard = []
                     for cat in categories:
@@ -409,7 +404,6 @@ def handle_msg(update, context):
                 update.message.reply_text("🛠 پنل مدیریت:", reply_markup=get_admin_menu())
                 return
 
-            # --- مدیریت منو ---
             if text == '📋 مدیریت منو':
                 keyboard = [
                     ['➕ دکمه جدید', '➖ حذف دکمه'],
@@ -499,7 +493,6 @@ def handle_msg(update, context):
                 )
                 return
 
-            # --- مدیریت دسته‌بندی‌ها ---
             if text == '📦 مدیریت دسته‌ها':
                 keyboard = [
                     ['➕ دسته جدید', '➖ حذف دسته'],
@@ -559,7 +552,6 @@ def handle_msg(update, context):
                 )
                 return
 
-            # --- ویرایش کارت ---
             if text == '💳 ویرایش کارت':
                 keyboard = [
                     ['شماره کارت', 'نام صاحب کارت'],
@@ -582,25 +574,21 @@ def handle_msg(update, context):
                 update.message.reply_text("👤 نام صاحب کارت را بفرستید:", reply_markup=back_btn())
                 return
 
-            # --- ویرایش پشتیبان ---
             if text == '👤 ویرایش پشتیبان':
                 user_data[uid] = {'step': 'support'}
                 update.message.reply_text("👤 آیدی پشتیبان را بفرستید:", reply_markup=back_btn())
                 return
 
-            # --- ویرایش کانال ---
             if text == '📢 ویرایش کانال':
                 user_data[uid] = {'step': 'guide'}
                 update.message.reply_text("📢 آیدی کانال آموزش را بفرستید:", reply_markup=back_btn())
                 return
 
-            # --- ویرایش برند ---
             if text == '🏷 ویرایش برند':
                 user_data[uid] = {'step': 'brand'}
                 update.message.reply_text("🏷 نام جدید برند را بفرستید:", reply_markup=back_btn())
                 return
 
-            # --- ویرایش متن‌ها ---
             if text == '📝 ویرایش متن‌ها':
                 keyboard = [
                     ['خوش‌آمدگویی', 'پشتیبانی', 'آموزش'],
@@ -635,7 +623,6 @@ def handle_msg(update, context):
                 )
                 return
 
-            # --- عضویت اجباری ---
             if text == '🔒 عضویت اجباری':
                 keyboard = [
                     ['✅ فعال', '❌ غیرفعال'],
@@ -673,7 +660,6 @@ def handle_msg(update, context):
                 )
                 return
 
-            # --- وضعیت ربات ---
             if text == '🔛 وضعیت ربات':
                 keyboard = [
                     ['✅ روشن', '❌ خاموش'],
@@ -707,7 +693,6 @@ def handle_msg(update, context):
                 )
                 return
 
-            # --- آمار ---
             if text == '📊 آمار':
                 total_users = len(db["users"])
                 total_purchases = sum(len(u.get("purchases", [])) for u in db["users"].values())
@@ -726,7 +711,117 @@ def handle_msg(update, context):
                 update.message.reply_text(stats)
                 return
 
-            # --- ارسال همگانی ---
+            # --- بخش بکاپ‌گیری ---
+            if text == '📦 بکاپ‌گیری':
+                try:
+                    backup_files = []
+                    
+                    # 1. بکاپ کاربران
+                    users_backup = {
+                        "users": db["users"],
+                        "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "type": "اطلاعات کاربران و سرویس‌ها"
+                    }
+                    with open('users_backup.json', 'w', encoding='utf-8') as f:
+                        json.dump(users_backup, f, ensure_ascii=False, indent=4)
+                    backup_files.append(('users_backup.json', '👤 اطلاعات کاربران و سرویس‌ها'))
+                    
+                    # 2. بکاپ پلن‌ها
+                    plans_backup = {
+                        "categories": db["categories"],
+                        "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "type": "پلن‌ها و دسته‌بندی‌ها"
+                    }
+                    with open('plans_backup.json', 'w', encoding='utf-8') as f:
+                        json.dump(plans_backup, f, ensure_ascii=False, indent=4)
+                    backup_files.append(('plans_backup.json', '📦 پلن‌ها و دسته‌بندی‌ها'))
+                    
+                    # 3. بکاپ کارت
+                    card_backup = {
+                        "card": db["card"],
+                        "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "type": "اطلاعات کارت بانکی"
+                    }
+                    with open('card_backup.json', 'w', encoding='utf-8') as f:
+                        json.dump(card_backup, f, ensure_ascii=False, indent=4)
+                    backup_files.append(('card_backup.json', '💳 اطلاعات کارت بانکی'))
+                    
+                    # 4. بکاپ متن‌ها
+                    texts_backup = {
+                        "texts": db["texts"],
+                        "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "type": "متن‌های ربات"
+                    }
+                    with open('texts_backup.json', 'w', encoding='utf-8') as f:
+                        json.dump(texts_backup, f, ensure_ascii=False, indent=4)
+                    backup_files.append(('texts_backup.json', '📝 متن‌های ربات'))
+                    
+                    # 5. بکاپ منو
+                    menu_backup = {
+                        "menu_buttons": db["menu_buttons"],
+                        "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "type": "دکمه‌های منوی اصلی"
+                    }
+                    with open('menu_backup.json', 'w', encoding='utf-8') as f:
+                        json.dump(menu_backup, f, ensure_ascii=False, indent=4)
+                    backup_files.append(('menu_backup.json', '📋 دکمه‌های منوی اصلی'))
+                    
+                    # 6. بکاپ تنظیمات
+                    settings_backup = {
+                        "brand": db["brand"],
+                        "support": db["support"],
+                        "guide": db["guide"],
+                        "force_join": db["force_join"],
+                        "bot_status": db["bot_status"],
+                        "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "type": "تنظیمات ربات"
+                    }
+                    with open('settings_backup.json', 'w', encoding='utf-8') as f:
+                        json.dump(settings_backup, f, ensure_ascii=False, indent=4)
+                    backup_files.append(('settings_backup.json', '⚙️ تنظیمات ربات'))
+                    
+                    update.message.reply_text("📦 در حال آماده‌سازی بکاپ‌ها...")
+                    
+                    for filename, description in backup_files:
+                        with open(filename, 'rb') as f:
+                            context.bot.send_document(
+                                chat_id=uid,
+                                document=f,
+                                filename=filename,
+                                caption=f"📁 {description}\n📅 تاریخ: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                            )
+                        os.remove(filename)
+                    
+                    update.message.reply_text("✅ بکاپ‌گیری با موفقیت انجام شد!\nهمه فایل‌ها ارسال شدن.")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Error in backup: {e}")
+                    update.message.reply_text(f"❌ خطا در بکاپ‌گیری: {e}")
+                return
+
+            if text == '🔄 بازیابی بکاپ':
+                user_data[uid] = {
+                    'step': 'restore_waiting',
+                    'restore_files': {},
+                    'expected_file': 'users_backup.json'
+                }
+                
+                msg = (
+                    "🔄 **بازیابی بکاپ**\n"
+                    "━━━━━━━━━━━━━━━━━━━━\n"
+                    "لطفاً فایل‌ها را به ترتیب زیر ارسال کنید:\n\n"
+                    "1️⃣ اول `users_backup.json` (اطلاعات کاربران)\n"
+                    "2️⃣ بعد `plans_backup.json` (پلن‌ها)\n"
+                    "3️⃣ بعد `card_backup.json` (کارت بانکی)\n"
+                    "4️⃣ بعد `texts_backup.json` (متن‌ها)\n"
+                    "5️⃣ بعد `menu_backup.json` (منوی اصلی)\n"
+                    "6️⃣ آخر `settings_backup.json` (تنظیمات)\n\n"
+                    "⚠️ **نکته مهم:** بعد از بازیابی، ربات ری‌استارت خواهد شد."
+                )
+                
+                update.message.reply_text(msg, parse_mode='Markdown')
+                return
+
             if text == '📨 ارسال همگانی':
                 user_data[uid] = {'step': 'broadcast'}
                 update.message.reply_text(
@@ -735,7 +830,6 @@ def handle_msg(update, context):
                 )
                 return
 
-            # --- افزودن پلن جدید ---
             if text == '➕ پلن جدید':
                 categories = list(db["categories"].keys())
                 kb = [[c] for c in categories] + [['🔙 برگشت']]
@@ -746,7 +840,6 @@ def handle_msg(update, context):
                 )
                 return
 
-            # --- حذف پلن ---
             if text == '➖ حذف پلن':
                 keyboard = []
                 for cat, plans in db["categories"].items():
@@ -763,7 +856,6 @@ def handle_msg(update, context):
                     update.message.reply_text("❌ هیچ پلنی وجود ندارد.")
                 return
 
-            # --- ویرایش پلن ---
             if text == '✏️ ویرایش پلن':
                 keyboard = []
                 for cat, plans in db["categories"].items():
@@ -780,7 +872,6 @@ def handle_msg(update, context):
                     update.message.reply_text("❌ هیچ پلنی وجود ندارد.")
                 return
 
-            # --- مراحل ویرایش ---
             if step == 'card_num':
                 if text.isdigit() and len(text) == 16:
                     db["card"]["number"] = text
@@ -862,7 +953,6 @@ def handle_msg(update, context):
                 user_data[uid] = {}
                 return
 
-            # --- مراحل افزودن پلن جدید ---
             if step == 'new_cat' and text in db["categories"]:
                 user_data[uid]['cat'] = text
                 user_data[uid]['step'] = 'new_name'
@@ -927,7 +1017,6 @@ def handle_msg(update, context):
                     update.message.reply_text(f"❌ خطا: {e}")
                 return
 
-            # --- دریافت کانفیگ برای ارسال ---
             if step == 'send_config':
                 target = user_data[uid]['target']
                 name = user_data[uid]['name']
@@ -964,7 +1053,6 @@ def handle_msg(update, context):
                 user_data[uid] = {}
                 return
 
-        # --- دریافت نام برای خرید جدید ---
         if step == 'wait_name':
             user_data[uid]['account'] = text
             p = user_data[uid]['plan']
@@ -1037,7 +1125,6 @@ def handle_cb(update, context):
             )
             return
 
-        # --- انتخاب دسته‌بندی ---
         if query.data.startswith("cat_"):
             cat = query.data[4:]
             plans = db["categories"].get(cat, [])
@@ -1058,7 +1145,6 @@ def handle_cb(update, context):
             )
             return
 
-        # --- خرید پلن ---
         if query.data.startswith("buy_"):
             try:
                 plan_id = int(query.data.split("_")[1])
@@ -1087,7 +1173,6 @@ def handle_cb(update, context):
                 query.message.reply_text(f"❌ خطا: {e}")
             return
 
-        # --- ارسال فیش ---
         if query.data == "receipt":
             if uid in user_data and 'plan' in user_data[uid] and 'account' in user_data[uid]:
                 user_data[uid]['step'] = 'wait_photo'
@@ -1098,7 +1183,7 @@ def handle_cb(update, context):
                     del user_data[uid]
             return
 
-        # --- تمدید سرویس ---
+        # --- تمدید سرویس (رفع مشکل) ---
         if query.data.startswith("renew_"):
             try:
                 index = int(query.data.split("_")[1])
@@ -1106,12 +1191,32 @@ def handle_cb(update, context):
                 
                 if index < len(purchases):
                     service = purchases[index]
+                    logger.info(f"🔄 تلاش برای تمدید سرویس: {service}")
                     
+                    # استخراج حجم از سرویس
+                    service_volume = None
+                    if "10GB" in service:
+                        service_volume = "10GB"
+                    elif "20GB" in service:
+                        service_volume = "20GB"
+                    elif "30GB" in service:
+                        service_volume = "30GB"
+                    elif "40GB" in service:
+                        service_volume = "40GB"
+                    elif "50GB" in service:
+                        service_volume = "50GB"
+                    elif "60GB" in service:
+                        service_volume = "60GB"
+                    elif "100GB" in service:
+                        service_volume = "100GB"
+                    
+                    # پیدا کردن پلن مشابه بر اساس حجم
                     similar_plan = None
                     for cat, plans in db["categories"].items():
                         for p in plans:
-                            if p['volume'] in service:
+                            if p['volume'] == service_volume:
                                 similar_plan = p
+                                logger.info(f"✅ پلن مشابه یافت شد: {p['name']}")
                                 break
                         if similar_plan:
                             break
@@ -1122,18 +1227,21 @@ def handle_cb(update, context):
                             InlineKeyboardButton(db["texts"]["back_button"], callback_data="back_to_categories")
                         ]])
                         query.message.edit_text(
-                            f"🔄 تمدید سرویس\n📝 لطفاً نام اکانت را وارد کنید:",
+                            f"🔄 تمدید سرویس {service[:30]}...\n"
+                            f"📦 پلن: {similar_plan['name']}\n"
+                            f"💰 قیمت: {similar_plan['price'] * 1000:,} تومان\n\n"
+                            f"📝 لطفاً نام اکانت را وارد کنید:",
                             reply_markup=keyboard
                         )
                     else:
-                        query.message.reply_text("❌ پلن مشابه یافت نشد.")
+                        query.message.reply_text("❌ پلن مشابه برای تمدید یافت نشد. لطفاً از خرید جدید استفاده کنید.")
                 else:
-                    query.message.reply_text("❌ سرویس یافت نشد.")
+                    query.message.reply_text("❌ سرویس مورد نظر یافت نشد.")
             except Exception as e:
+                logger.error(f"❌ Error in renew: {e}")
                 query.message.reply_text(f"❌ خطا: {e}")
             return
 
-        # --- حذف دکمه از منو ---
         if query.data.startswith("del_menu_"):
             if str(uid) == str(ADMIN_ID):
                 index = int(query.data.split("_")[2])
@@ -1145,7 +1253,6 @@ def handle_cb(update, context):
                     query.message.edit_text("❌ خطا در حذف دکمه.")
             return
 
-        # --- ویرایش دکمه منو ---
         if query.data.startswith("edit_menu_"):
             if str(uid) == str(ADMIN_ID):
                 index = int(query.data.split("_")[2])
@@ -1156,7 +1263,6 @@ def handle_cb(update, context):
                 )
             return
 
-        # --- حذف دسته‌بندی ---
         if query.data.startswith("del_cat_"):
             if str(uid) == str(ADMIN_ID):
                 cat = query.data[8:]
@@ -1171,7 +1277,6 @@ def handle_cb(update, context):
                     query.message.edit_text("❌ دسته‌بندی یافت نشد.")
             return
 
-        # --- ویرایش دسته‌بندی ---
         if query.data.startswith("edit_cat_"):
             if str(uid) == str(ADMIN_ID):
                 cat = query.data[9:]
@@ -1182,7 +1287,6 @@ def handle_cb(update, context):
                 )
             return
 
-        # --- حذف پلن ---
         if query.data.startswith("del_"):
             if str(uid) == str(ADMIN_ID):
                 try:
@@ -1207,7 +1311,6 @@ def handle_cb(update, context):
                     query.message.edit_text(f"❌ خطا: {e}")
             return
 
-        # --- ویرایش پلن ---
         if query.data.startswith("edit_plan_"):
             if str(uid) == str(ADMIN_ID):
                 try:
@@ -1239,7 +1342,6 @@ def handle_cb(update, context):
                     query.message.edit_text(f"❌ خطا: {e}")
             return
 
-        # --- ارسال تست ---
         if query.data.startswith("test_"):
             if str(uid) == str(ADMIN_ID):
                 try:
@@ -1260,7 +1362,6 @@ def handle_cb(update, context):
                     context.bot.send_message(uid, f"❌ خطا: {e}")
             return
 
-        # --- ارسال کانفیگ ---
         if query.data.startswith("send_"):
             if str(uid) == str(ADMIN_ID):
                 try:
@@ -1349,6 +1450,102 @@ def handle_photo(update, context):
         logger.error(f"Error in handle_photo: {e}")
         update.message.reply_text("❌ خطایی رخ داد.")
 
+def handle_document(update, context):
+    """هندلر دریافت فایل برای بازیابی بکاپ"""
+    try:
+        uid = str(update.effective_user.id)
+        
+        if uid != str(ADMIN_ID):
+            update.message.reply_text("❌ شما دسترسی به این بخش ندارید.")
+            return
+        
+        step_data = user_data.get(uid, {})
+        if step_data.get('step') != 'restore_waiting':
+            return
+        
+        document = update.message.document
+        if not document.file_name.endswith('.json'):
+            update.message.reply_text("❌ لطفاً فایل JSON معتبر بفرستید.")
+            return
+        
+        expected_file = step_data.get('expected_file')
+        if document.file_name != expected_file:
+            update.message.reply_text(
+                f"❌ لطفاً فایل {expected_file} رو بفرستید.\n"
+                f"شما {document.file_name} رو ارسال کردید."
+            )
+            return
+        
+        # دانلود فایل
+        file = context.bot.get_file(document.file_id)
+        file.download(document.file_name)
+        
+        # خوندن فایل
+        with open(document.file_name, 'r', encoding='utf-8') as f:
+            backup_data = json.load(f)
+        
+        # اعمال بکاپ بر اساس نوع فایل
+        if document.file_name == 'users_backup.json':
+            db["users"] = backup_data["users"]
+            user_data[uid]['restore_files']['users'] = True
+            next_file = 'plans_backup.json'
+            msg = "✅ اطلاعات کاربران بازیابی شد.\n📁 حالا فایل `plans_backup.json` رو بفرستید."
+        
+        elif document.file_name == 'plans_backup.json':
+            db["categories"] = backup_data["categories"]
+            user_data[uid]['restore_files']['plans'] = True
+            next_file = 'card_backup.json'
+            msg = "✅ پلن‌ها بازیابی شدن.\n💳 حالا فایل `card_backup.json` رو بفرستید."
+        
+        elif document.file_name == 'card_backup.json':
+            db["card"] = backup_data["card"]
+            user_data[uid]['restore_files']['card'] = True
+            next_file = 'texts_backup.json'
+            msg = "✅ اطلاعات کارت بازیابی شد.\n📝 حالا فایل `texts_backup.json` رو بفرستید."
+        
+        elif document.file_name == 'texts_backup.json':
+            db["texts"] = backup_data["texts"]
+            user_data[uid]['restore_files']['texts'] = True
+            next_file = 'menu_backup.json'
+            msg = "✅ متن‌ها بازیابی شدن.\n📋 حالا فایل `menu_backup.json` رو بفرستید."
+        
+        elif document.file_name == 'menu_backup.json':
+            db["menu_buttons"] = backup_data["menu_buttons"]
+            user_data[uid]['restore_files']['menu'] = True
+            next_file = 'settings_backup.json'
+            msg = "✅ منوی اصلی بازیابی شد.\n⚙️ حالا فایل `settings_backup.json` رو بفرستید."
+        
+        elif document.file_name == 'settings_backup.json':
+            db["brand"] = backup_data["brand"]
+            db["support"] = backup_data["support"]
+            db["guide"] = backup_data["guide"]
+            db["force_join"] = backup_data["force_join"]
+            db["bot_status"] = backup_data["bot_status"]
+            user_data[uid]['restore_files']['settings'] = True
+            next_file = 'COMPLETE'
+            msg = "✅ تنظیمات بازیابی شد.\n🎉 همه فایل‌ها با موفقیت بازیابی شدن!"
+        
+        # پاک کردن فایل موقت
+        os.remove(document.file_name)
+        
+        if next_file == 'COMPLETE':
+            save_db(db)
+            update.message.reply_text(
+                "✅ **بازیابی با موفقیت کامل شد!**\n"
+                "🔄 ربات در حال ری‌استارت است...",
+                parse_mode='Markdown'
+            )
+            user_data[uid] = {}
+            # ری‌استارت ربات
+            os._exit(0)
+        else:
+            user_data[uid]['expected_file'] = next_file
+            update.message.reply_text(msg, parse_mode='Markdown')
+        
+    except Exception as e:
+        logger.error(f"❌ Error in handle_document: {e}")
+        update.message.reply_text(f"❌ خطا در بازیابی: {e}")
+
 def main():
     try:
         logger.info("🚀 Starting bot...")
@@ -1362,6 +1559,7 @@ def main():
         dp.add_handler(CommandHandler("start", start))
         dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_msg))
         dp.add_handler(MessageHandler(Filters.photo, handle_photo))
+        dp.add_handler(MessageHandler(Filters.document, handle_document))
         dp.add_handler(CallbackQueryHandler(handle_cb))
         
         updater.start_polling()
