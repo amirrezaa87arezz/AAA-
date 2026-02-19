@@ -1,9 +1,9 @@
 import os
 import json
 import logging
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from flask import Flask, request
 from threading import Thread
-from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
 from datetime import datetime
 import traceback
@@ -17,29 +17,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- وب سرور ساده ---
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html; charset=utf-8')
-        self.end_headers()
-        self.wfile.write("✅ VPN Bot is Running!".encode('utf-8'))
-    
-    def log_message(self, format, *args):
-        pass
-
-def run_web():
-    try:
-        port = int(os.environ.get('PORT', 8080))
-        server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-        logger.info(f"✅ Web server started on port {port}")
-        server.serve_forever()
-    except Exception as e:
-        logger.error(f"❌ Web server error: {e}")
+# --- Flask app ---
+app = Flask(__name__)
 
 # --- توکن و آیدی ادمین ---
 TOKEN = '8305364438:AAGAT39wGQey9tzxMVafEiRRXz1eGNvpfhY'
 ADMIN_ID = 7935344235
+PORT = int(os.environ.get('PORT', 8080))
 
 # --- مسیر دیتابیس ---
 DB_FILE = 'data.json'
@@ -91,7 +75,8 @@ DEFAULT_TEXTS = {
     "admin_panel": "🛠 پنل مدیریت",
     "back_button": "🔙 برگشت",
     "cancel": "❌ انصراف",
-    "btn_admin": "⚙️ مدیریت"
+    "btn_admin": "⚙️ مدیریت",
+    "restart_success": "✅ **ربات با موفقیت ری‌استارت شد!**\n🔄 همه چیز آماده است."
 }
 
 def load_db():
@@ -1331,18 +1316,20 @@ def handle_document(update, context):
         if next_file == 'COMPLETE':
             save_db(db)
             
+            # ارسال پیام نهایی
             update.message.reply_text(
-                "✅ **ربات با موفقیت بازیابی شد!**\n"
-                "🔄 لطفاً ۵ ثانیه صبر کنید و سپس /start را بزنید.",
+                "✅ **بازیابی با موفقیت کامل شد!**\n"
+                "🔄 ربات در حال ری‌استارت خودکار است...\n"
+                "⏳ لطفاً ۵ ثانیه صبر کنید.",
                 parse_mode='Markdown'
             )
             
             user_data[uid] = {}
             logger.info("🔄 Restarting bot after backup restore...")
             
+            # بستن اتصالات و خروج
             time.sleep(2)
-            # ری‌استارت واقعی در Railway
-            os._exit(0)
+            os._exit(0)  # این باعث می‌شود Railway کانتینر را ری‌استارت کند
             return
         else:
             user_data[uid]['expected_file'] = next_file
@@ -1352,12 +1339,30 @@ def handle_document(update, context):
         logger.error(f"❌ Error in handle_document: {e}")
         update.message.reply_text(f"❌ خطا در بازیابی: {e}")
 
-def main():
+# --- Webhook handler ---
+@app.route('/webhook', methods=['POST'])
+def webhook():
     try:
-        logger.info("🚀 Starting bot...")
-        
-        web_thread = Thread(target=run_web, daemon=True)
-        web_thread.start()
+        update = Update.de_json(request.get_json(force=True), updater.bot)
+        updater.dispatcher.process_update(update)
+        return 'ok', 200
+    except Exception as e:
+        logger.error(f"❌ Webhook error: {e}")
+        return 'error', 500
+
+@app.route('/')
+def home():
+    return "✅ VPN Bot is Running with Webhook!"
+
+def setup_webhook():
+    url = f"https://{os.environ.get('RAILWAY_STATIC_URL', 'your-app.railway.app')}/webhook"
+    updater.bot.set_webhook(url=url)
+    logger.info(f"✅ Webhook set to {url}")
+
+def main():
+    global updater
+    try:
+        logger.info("🚀 Starting bot with Webhook...")
         
         updater = Updater(TOKEN, use_context=True)
         dp = updater.dispatcher
@@ -1368,9 +1373,13 @@ def main():
         dp.add_handler(MessageHandler(Filters.document, handle_document))
         dp.add_handler(CallbackQueryHandler(handle_cb))
         
-        updater.start_polling()
-        logger.info("✅ Bot is running!")
-        updater.idle()
+        # تنظیم webhook
+        setup_webhook()
+        
+        logger.info("✅ Bot is running with webhook!")
+        
+        # اجرای Flask
+        app.run(host='0.0.0.0', port=PORT)
         
     except Exception as e:
         logger.error(f"❌ Fatal error: {e}")
