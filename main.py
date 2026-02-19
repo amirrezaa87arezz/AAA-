@@ -8,6 +8,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryH
 from datetime import datetime
 import traceback
 import time
+import sys
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
@@ -149,7 +150,6 @@ def load_db():
 db = load_db()
 user_data = {}
 
-# --- تابع save_db (رفع مشکل اصلی) ---
 def save_db(data):
     try:
         with open(DB_FILE, 'w', encoding='utf-8') as f:
@@ -1341,6 +1341,7 @@ def handle_document(update, context):
             logger.info("🔄 Restarting bot after backup restore...")
             
             time.sleep(2)
+            # ری‌استارت واقعی در Railway
             os._exit(0)
             return
         else:
