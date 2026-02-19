@@ -10,6 +10,7 @@ import traceback
 import sys
 import signal
 import time
+import requests
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
@@ -1335,7 +1336,7 @@ def handle_document(update, context):
                 db["bot_status"] = backup_data["bot_status"]
             user_data[uid]['restore_files']['settings'] = True
             next_file = 'COMPLETE'
-            msg = "✅ **بازیابی با موفقیت کامل شد!**\n🔄 ربات در حال ری‌استارت خودکار است..."
+            msg = "✅ **بازیابی با موفقیت کامل شد!**\n🔄 ربات در حال ری‌استارت خودکار است... پس از چند ثانیه دوباره استارت بزنید."
         
         os.remove(document.file_name)
         
@@ -1344,8 +1345,9 @@ def handle_document(update, context):
             update.message.reply_text(msg, parse_mode='Markdown')
             user_data[uid] = {}
             logger.info("🔄 Automatic restart after backup restore...")
-            time.sleep(2)  # مهلت ۲ ثانیه برای ارسال پیام
-            os._exit(0)  # ری‌استارت ربات
+            time.sleep(3)  # مهلت ۳ ثانیه برای ارسال پیام
+            # ری‌استارت از طریق Railway
+            os._exit(0)
             return
         else:
             user_data[uid]['expected_file'] = next_file
