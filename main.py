@@ -9,6 +9,7 @@ from datetime import datetime
 import traceback
 import sys
 import signal
+import time
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
@@ -90,7 +91,8 @@ DEFAULT_TEXTS = {
     "admin_panel": "🛠 پنل مدیریت",
     "back_button": "🔙 برگشت",
     "cancel": "❌ انصراف",
-    "btn_admin": "⚙️ مدیریت"
+    "btn_admin": "⚙️ مدیریت",
+    "restart_success": "✅ **ربات با موفقیت ری‌استارت شد!**\n🔄 همه چیز آماده است."
 }
 
 def load_db():
@@ -1333,21 +1335,17 @@ def handle_document(update, context):
                 db["bot_status"] = backup_data["bot_status"]
             user_data[uid]['restore_files']['settings'] = True
             next_file = 'COMPLETE'
-            msg = "✅ تنظیمات بازیابی شد.\n🎉 همه فایل‌ها با موفقیت بازیابی شدن! در حال ری‌استارت ربات..."
+            msg = "✅ **بازیابی با موفقیت کامل شد!**\n🔄 ربات در حال ری‌استارت خودکار است..."
         
         os.remove(document.file_name)
         
         if next_file == 'COMPLETE':
             save_db(db)
-            update.message.reply_text(
-                "✅ **بازیابی با موفقیت کامل شد!**\n"
-                "🔄 ربات در حال ری‌استارت خودکار است...",
-                parse_mode='Markdown'
-            )
+            update.message.reply_text(msg, parse_mode='Markdown')
             user_data[uid] = {}
-            # ری‌استارت خودکار ربات
             logger.info("🔄 Automatic restart after backup restore...")
-            os._exit(0)
+            time.sleep(2)  # مهلت ۲ ثانیه برای ارسال پیام
+            os._exit(0)  # ری‌استارت ربات
             return
         else:
             user_data[uid]['expected_file'] = next_file
