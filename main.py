@@ -149,6 +149,17 @@ def load_db():
 db = load_db()
 user_data = {}
 
+# --- تابع save_db (رفع مشکل اصلی) ---
+def save_db(data):
+    try:
+        with open(DB_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+        logger.info("💾 Database saved successfully")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Error saving database: {e}")
+        return False
+
 def get_main_menu(uid):
     buttons = db["menu_buttons"]
     kb = []
@@ -672,9 +683,12 @@ def handle_msg(update, context):
                     backup_files.append(('menu_backup.json', '📋 منو'))
                     
                     settings = {
-                        "brand": db["brand"], "support": db["support"], "guide": db["guide"],
+                        "brand": db["brand"], 
+                        "support": db["support"], 
+                        "guide": db["guide"],
                         "testimonials_channel": db.get("testimonials_channel", ""),
-                        "force_join": db["force_join"], "bot_status": db["bot_status"],
+                        "force_join": db["force_join"], 
+                        "bot_status": db["bot_status"],
                         "date": str(datetime.now())
                     }
                     with open('settings_backup.json', 'w', encoding='utf-8') as f:
@@ -1056,6 +1070,8 @@ def handle_cb(update, context):
                         )
                     else:
                         query.message.reply_text("❌ پلن مشابه برای تمدید یافت نشد.")
+                        if uid in user_data:
+                            del user_data[uid]
                 else:
                     query.message.reply_text("❌ سرویس مورد نظر یافت نشد.")
             except Exception as e:
