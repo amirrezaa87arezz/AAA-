@@ -7,6 +7,7 @@ from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMa
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
 from datetime import datetime
 import traceback
+import time
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
@@ -59,7 +60,6 @@ DEFAULT_PLANS = {
     ]
 }
 
-# --- دکمه‌های پیش‌فرض منوی اصلی ---
 DEFAULT_MENU_BUTTONS = [
     {"text": "💰 خرید اشتراک", "action": "buy"},
     {"text": "🎁 تست رایگان", "action": "test"},
@@ -71,7 +71,6 @@ DEFAULT_MENU_BUTTONS = [
     {"text": "🤝 دعوت دوستان", "action": "invite"}
 ]
 
-# --- متن‌های پیش‌فرض برای همه بخش‌ها ---
 DEFAULT_TEXTS = {
     "welcome": "🔰 به {brand} خوش آمدید\n\n✅ فروش ویژه فیلترشکن\n✅ پشتیبانی 24 ساعته\n✅ نصب آسان",
     "support": "🆘 پشتیبانی: {support}",
@@ -88,7 +87,6 @@ DEFAULT_TEXTS = {
 }
 
 def load_db():
-    """بارگذاری دیتابیس از فایل"""
     try:
         if os.path.exists(DB_FILE):
             with open(DB_FILE, 'r', encoding='utf-8') as f:
@@ -118,10 +116,7 @@ def load_db():
     return {
         "users": {},
         "brand": "تک نت وی‌پی‌ان",
-        "card": {
-            "number": "6277601368776066",
-            "name": "محمد رضوانی"
-        },
+        "card": {"number": "6277601368776066", "name": "محمد رضوانی"},
         "support": "@Support_Admin",
         "guide": "@Guide_Channel",
         "categories": DEFAULT_PLANS.copy(),
@@ -145,20 +140,16 @@ db = load_db()
 user_data = {}
 
 def get_main_menu(uid):
-    """منوی اصلی کاربر"""
     buttons = db["menu_buttons"]
     kb = []
     row = []
-    
     for i, btn in enumerate(buttons):
         row.append(btn["text"])
         if (i + 1) % 2 == 0 or i == len(buttons) - 1:
             kb.append(row)
             row = []
-    
     if str(uid) == str(ADMIN_ID):
         kb.append([db["texts"].get("btn_admin", "⚙️ مدیریت")])
-    
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
 
 def back_btn():
@@ -180,13 +171,10 @@ def get_admin_menu():
 def check_join(user_id, context):
     if not db["force_join"]["enabled"]:
         return True
-    
     channel_id = db["force_join"].get("channel_id", "")
     channel_username = db["force_join"].get("channel_username", "")
-    
     if not channel_id and not channel_username:
         return True
-    
     if channel_id:
         try:
             member = context.bot.get_chat_member(chat_id=int(channel_id), user_id=int(user_id))
@@ -194,7 +182,6 @@ def check_join(user_id, context):
                 return True
         except:
             pass
-    
     if channel_username:
         try:
             member = context.bot.get_chat_member(chat_id=channel_username, user_id=int(user_id))
@@ -202,7 +189,6 @@ def check_join(user_id, context):
                 return True
         except:
             pass
-    
     return False
 
 def start(update, context):
@@ -220,12 +206,9 @@ def start(update, context):
         
         if uid not in db["users"]:
             db["users"][uid] = {
-                "purchases": [],
-                "tests": [],
-                "test_count": 0,
+                "purchases": [], "tests": [], "test_count": 0,
                 "invited_by": args[0] if args and args[0].isdigit() and args[0] != uid else None,
-                "invited_users": [],
-                "date": datetime.now().strftime("%Y-%m-%d")
+                "invited_users": [], "date": datetime.now().strftime("%Y-%m-%d")
             }
             save_db(db)
         
@@ -247,10 +230,8 @@ def start(update, context):
         
         welcome = db["texts"]["welcome"].format(brand=db["brand"])
         update.message.reply_text(welcome, reply_markup=get_main_menu(uid))
-        
     except Exception as e:
         logger.error(f"Error in start: {e}")
-        update.message.reply_text("❌ خطایی رخ داد. لطفاً دوباره تلاش کنید.")
 
 def handle_msg(update, context):
     try:
@@ -270,10 +251,7 @@ def handle_msg(update, context):
                     InlineKeyboardButton("📢 عضویت در کانال", url=db["force_join"]["channel_link"]),
                     InlineKeyboardButton("✅ تایید عضویت", callback_data="join_check")
                 ]])
-                update.message.reply_text(
-                    db["texts"]["force"].format(link=db["force_join"]["channel_link"]),
-                    reply_markup=btn
-                )
+                update.message.reply_text(db["texts"]["force"].format(link=db["force_join"]["channel_link"]), reply_markup=btn)
                 return
 
         if text == texts["back_button"] or text == '🔙 برگشت':
@@ -294,35 +272,22 @@ def handle_msg(update, context):
                     for cat in categories:
                         keyboard.append([InlineKeyboardButton(cat, callback_data=f"cat_{cat}")])
                     keyboard.append([InlineKeyboardButton(texts["back_button"], callback_data="back_to_main")])
-                    
-                    update.message.reply_text(
-                        "📂 لطفاً دسته‌بندی مورد نظر را انتخاب کنید:",
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
+                    update.message.reply_text("📂 لطفاً دسته‌بندی مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
                     return
-                
                 elif action == "test":
                     if db["users"][uid]["test_count"] >= 1:
-                        update.message.reply_text("❌ شما قبلاً یک بار تست دریافت کرده‌اید.")
+                        update.message.reply_text("❌ شما قبلاً تست دریافت کرده‌اید.")
                         return
-                    
                     db["users"][uid]["test_count"] += 1
                     db["users"][uid]["tests"].append(datetime.now().strftime("%Y-%m-%d"))
                     save_db(db)
-                    
                     update.message.reply_text(db["texts"]["test"])
-                    
-                    btn = InlineKeyboardMarkup([[
-                        InlineKeyboardButton("📤 ارسال تست", callback_data=f"test_{uid}_{name}")
-                    ]])
-                    
+                    btn = InlineKeyboardMarkup([[InlineKeyboardButton("📤 ارسال تست", callback_data=f"test_{uid}_{name}")]])
                     context.bot.send_message(ADMIN_ID, f"🎁 درخواست تست جدید\n👤 {name}\n🆔 {uid}", reply_markup=btn)
                     return
-                
                 elif action == "services":
                     purchases = db["users"][uid].get("purchases", [])
                     tests = db["users"][uid].get("tests", [])
-                    
                     msg = "📂 سرویس‌های شما:\n━━━━━━━━━━\n"
                     if purchases:
                         msg += "✅ خریدها:\n"
@@ -330,41 +295,30 @@ def handle_msg(update, context):
                             msg += f"{i}. {p}\n"
                     else:
                         msg += "❌ خریدی ندارید\n"
-                    
                     if tests:
                         msg += "\n🎁 تست‌ها:\n"
                         for i, t in enumerate(tests[-5:], 1):
                             msg += f"{i}. {t}\n"
-                    
                     update.message.reply_text(msg)
                     return
-                
                 elif action == "renew":
                     purchases = db["users"][uid].get("purchases", [])
                     if not purchases:
                         update.message.reply_text("❌ شما سرویسی برای تمدید ندارید.")
                         return
-                    
                     keyboard = []
                     for i, p in enumerate(purchases[-5:]):
                         keyboard.append([InlineKeyboardButton(f"🔄 {p[:30]}...", callback_data=f"renew_{i}")])
                     keyboard.append([InlineKeyboardButton(texts["back_button"], callback_data="back_to_main")])
-                    
-                    update.message.reply_text(
-                        "🔁 سرویس مورد نظر را انتخاب کنید:",
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
+                    update.message.reply_text("🔁 سرویس مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
                     return
-                
                 elif action == "profile":
                     user = db["users"][uid]
                     purchases_count = len(user.get("purchases", []))
                     tests_count = len(user.get("tests", []))
                     invited_count = len(user.get("invited_users", []))
-                    
                     bot_username = context.bot.get_me().username
                     invite_link = f"https://t.me/{bot_username}?start={uid}"
-                    
                     profile_text = (
                         f"👤 <b>مشخصات کاربر</b>\n"
                         f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -379,18 +333,14 @@ def handle_msg(update, context):
                         f"🔗 لینک دعوت اختصاصی:\n"
                         f"<code>{invite_link}</code>"
                     )
-                    
                     update.message.reply_text(profile_text, parse_mode='HTML')
                     return
-                
                 elif action == "support":
                     update.message.reply_text(db["texts"]["support"].format(support=db["support"]))
                     return
-                
                 elif action == "guide":
                     update.message.reply_text(db["texts"]["guide"].format(guide=db["guide"]))
                     return
-                
                 elif action == "invite":
                     bot_username = context.bot.get_me().username
                     link = f"https://t.me/{bot_username}?start={uid}"
@@ -399,47 +349,27 @@ def handle_msg(update, context):
                     return
 
         if str(uid) == str(ADMIN_ID):
-            
             if text == "⚙️ مدیریت" or text == db["texts"].get("btn_admin", "⚙️ مدیریت"):
                 update.message.reply_text("🛠 پنل مدیریت:", reply_markup=get_admin_menu())
                 return
 
             if text == '📋 مدیریت منو':
-                keyboard = [
-                    ['➕ دکمه جدید', '➖ حذف دکمه'],
-                    ['✏️ ویرایش دکمه', '🔁 ترتیب دکمه‌ها'],
-                    ['🔙 برگشت']
-                ]
-                
+                keyboard = [['➕ دکمه جدید', '➖ حذف دکمه'], ['✏️ ویرایش دکمه', '🔁 ترتیب دکمه‌ها'], ['🔙 برگشت']]
                 menu_text = "📋 دکمه‌های فعلی منو:\n"
                 for i, btn in enumerate(db["menu_buttons"], 1):
                     menu_text += f"{i}. {btn['text']} (عملکرد: {btn['action']})\n"
-                
-                update.message.reply_text(
-                    menu_text,
-                    reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                )
+                update.message.reply_text(menu_text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
                 return
 
             if text == '➕ دکمه جدید':
                 user_data[uid] = {'step': 'new_menu_button_text'}
-                update.message.reply_text(
-                    "📝 متن دکمه جدید را بفرستید:",
-                    reply_markup=back_btn()
-                )
+                update.message.reply_text("📝 متن دکمه جدید را بفرستید:", reply_markup=back_btn())
                 return
 
             if step == 'new_menu_button_text':
                 user_data[uid]['button_text'] = text
                 user_data[uid]['step'] = 'new_menu_button_action'
-                
-                actions = [
-                    ['buy', 'test', 'services'],
-                    ['renew', 'profile', 'support'],
-                    ['guide', 'invite'],
-                    ['🔙 برگشت']
-                ]
-                
+                actions = [['buy', 'test', 'services'], ['renew', 'profile', 'support'], ['guide', 'invite'], ['🔙 برگشت']]
                 update.message.reply_text(
                     "🔧 عملکرد دکمه را انتخاب کنید:\n"
                     "buy: خرید\n"
@@ -457,16 +387,12 @@ def handle_msg(update, context):
             if step == 'new_menu_button_action':
                 valid_actions = ['buy', 'test', 'services', 'renew', 'profile', 'support', 'guide', 'invite']
                 if text in valid_actions:
-                    new_button = {
-                        "text": user_data[uid]['button_text'],
-                        "action": text
-                    }
-                    db["menu_buttons"].append(new_button)
+                    db["menu_buttons"].append({"text": user_data[uid]['button_text'], "action": text})
                     save_db(db)
-                    update.message.reply_text("✅ دکمه جدید با موفقیت اضافه شد!", reply_markup=get_admin_menu())
+                    update.message.reply_text("✅ دکمه جدید اضافه شد!", reply_markup=get_admin_menu())
                     user_data[uid] = {}
                 else:
-                    update.message.reply_text("❌ عملکرد نامعتبر است!")
+                    update.message.reply_text("❌ عملکرد نامعتبر!")
                 return
 
             if text == '➖ حذف دکمه':
@@ -474,11 +400,7 @@ def handle_msg(update, context):
                 for i, btn in enumerate(db["menu_buttons"]):
                     keyboard.append([InlineKeyboardButton(f"❌ {btn['text']}", callback_data=f"del_menu_{i}")])
                 keyboard.append([InlineKeyboardButton("🔙 برگشت", callback_data="back_to_admin")])
-                
-                update.message.reply_text(
-                    "🗑 دکمه مورد نظر را انتخاب کنید:",
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
+                update.message.reply_text("🗑 دکمه مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
                 return
 
             if text == '✏️ ویرایش دکمه':
@@ -486,45 +408,29 @@ def handle_msg(update, context):
                 for i, btn in enumerate(db["menu_buttons"]):
                     keyboard.append([InlineKeyboardButton(f"✏️ {btn['text']}", callback_data=f"edit_menu_{i}")])
                 keyboard.append([InlineKeyboardButton("🔙 برگشت", callback_data="back_to_admin")])
-                
-                update.message.reply_text(
-                    "✏️ دکمه مورد نظر را انتخاب کنید:",
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
+                update.message.reply_text("✏️ دکمه مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
                 return
 
             if text == '📦 مدیریت دسته‌ها':
-                keyboard = [
-                    ['➕ دسته جدید', '➖ حذف دسته'],
-                    ['✏️ ویرایش دسته', '🔁 ترتیب دسته‌ها'],
-                    ['🔙 برگشت']
-                ]
-                
+                keyboard = [['➕ دسته جدید', '➖ حذف دسته'], ['✏️ ویرایش دسته', '🔁 ترتیب دسته‌ها'], ['🔙 برگشت']]
                 cats_text = "📦 دسته‌بندی‌های فعلی:\n"
                 for i, cat in enumerate(db["categories"].keys(), 1):
                     cats_text += f"{i}. {cat}\n"
-                
-                update.message.reply_text(
-                    cats_text,
-                    reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                )
+                update.message.reply_text(cats_text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
                 return
 
             if text == '➕ دسته جدید':
                 user_data[uid] = {'step': 'new_category'}
-                update.message.reply_text(
-                    "📝 نام دسته‌بندی جدید را بفرستید:",
-                    reply_markup=back_btn()
-                )
+                update.message.reply_text("📝 نام دسته‌بندی جدید را بفرستید:", reply_markup=back_btn())
                 return
 
             if step == 'new_category':
                 if text not in db["categories"]:
                     db["categories"][text] = []
                     save_db(db)
-                    update.message.reply_text(f"✅ دسته‌بندی {text} با موفقیت اضافه شد!", reply_markup=get_admin_menu())
+                    update.message.reply_text(f"✅ دسته‌بندی {text} اضافه شد!", reply_markup=get_admin_menu())
                 else:
-                    update.message.reply_text("❌ این دسته‌بندی قبلاً وجود دارد!")
+                    update.message.reply_text("❌ این دسته قبلاً وجود دارد!")
                 user_data[uid] = {}
                 return
 
@@ -533,11 +439,7 @@ def handle_msg(update, context):
                 for cat in db["categories"].keys():
                     keyboard.append([InlineKeyboardButton(f"❌ {cat}", callback_data=f"del_cat_{cat}")])
                 keyboard.append([InlineKeyboardButton("🔙 برگشت", callback_data="back_to_admin")])
-                
-                update.message.reply_text(
-                    "🗑 دسته‌بندی مورد نظر را انتخاب کنید:",
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
+                update.message.reply_text("🗑 دسته‌بندی مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
                 return
 
             if text == '✏️ ویرایش دسته':
@@ -545,23 +447,13 @@ def handle_msg(update, context):
                 for cat in db["categories"].keys():
                     keyboard.append([InlineKeyboardButton(f"✏️ {cat}", callback_data=f"edit_cat_{cat}")])
                 keyboard.append([InlineKeyboardButton("🔙 برگشت", callback_data="back_to_admin")])
-                
-                update.message.reply_text(
-                    "✏️ دسته‌بندی مورد نظر را انتخاب کنید:",
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
+                update.message.reply_text("✏️ دسته‌بندی مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
                 return
 
             if text == '💳 ویرایش کارت':
-                keyboard = [
-                    ['شماره کارت', 'نام صاحب کارت'],
-                    ['🔙 برگشت']
-                ]
+                keyboard = [['شماره کارت', 'نام صاحب کارت'], ['🔙 برگشت']]
                 current = f"شماره: {db['card']['number']}\nنام: {db['card']['name']}"
-                update.message.reply_text(
-                    current,
-                    reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                )
+                update.message.reply_text(current, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
                 return
 
             if text == 'شماره کارت':
@@ -596,45 +488,25 @@ def handle_msg(update, context):
                     ['اطلاعات پرداخت', 'تعمیرات', 'کانفیگ'],
                     ['🔙 برگشت']
                 ]
-                update.message.reply_text(
-                    "📝 کدام متن را ویرایش کنیم؟",
-                    reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                )
+                update.message.reply_text("📝 کدام متن را ویرایش کنیم؟", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
                 return
 
             text_map = {
-                'خوش‌آمدگویی': 'welcome',
-                'پشتیبانی': 'support',
-                'آموزش': 'guide',
-                'تست رایگان': 'test',
-                'عضویت اجباری': 'force',
-                'دعوت دوستان': 'invite',
-                'اطلاعات پرداخت': 'payment_info',
-                'تعمیرات': 'maintenance',
-                'کانفیگ': 'config_sent'
+                'خوش‌آمدگویی': 'welcome', 'پشتیبانی': 'support', 'آموزش': 'guide',
+                'تست رایگان': 'test', 'عضویت اجباری': 'force', 'دعوت دوستان': 'invite',
+                'اطلاعات پرداخت': 'payment_info', 'تعمیرات': 'maintenance', 'کانفیگ': 'config_sent'
             }
-            
             if text in text_map:
                 user_data[uid] = {'step': f'edit_{text_map[text]}'}
                 current_text = db["texts"][text_map[text]]
-                update.message.reply_text(
-                    f"📝 متن فعلی:\n{current_text}\n\nمتن جدید را بفرستید:",
-                    reply_markup=back_btn()
-                )
+                update.message.reply_text(f"📝 متن فعلی:\n{current_text}\n\nمتن جدید را بفرستید:", reply_markup=back_btn())
                 return
 
             if text == '🔒 عضویت اجباری':
-                keyboard = [
-                    ['✅ فعال', '❌ غیرفعال'],
-                    ['🔗 تنظیم لینک کانال'],
-                    ['🔙 برگشت']
-                ]
+                keyboard = [['✅ فعال', '❌ غیرفعال'], ['🔗 تنظیم لینک کانال'], ['🔙 برگشت']]
                 status = "✅ فعال" if db["force_join"]["enabled"] else "❌ غیرفعال"
                 channel = db["force_join"]["channel_username"] or "تنظیم نشده"
-                update.message.reply_text(
-                    f"🔒 وضعیت عضویت اجباری:\nوضعیت: {status}\nکانال: {channel}",
-                    reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                )
+                update.message.reply_text(f"🔒 وضعیت عضویت اجباری:\nوضعیت: {status}\nکانال: {channel}", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
                 return
 
             if text == '✅ فعال':
@@ -654,23 +526,13 @@ def handle_msg(update, context):
 
             if text == '🔗 تنظیم لینک کانال':
                 user_data[uid] = {'step': 'set_link'}
-                update.message.reply_text(
-                    "🔗 لینک کانال را بفرستید:\nمثال: https://t.me/mychannel",
-                    reply_markup=back_btn()
-                )
+                update.message.reply_text("🔗 لینک کانال را بفرستید:\nمثال: https://t.me/mychannel", reply_markup=back_btn())
                 return
 
             if text == '🔛 وضعیت ربات':
-                keyboard = [
-                    ['✅ روشن', '❌ خاموش'],
-                    ['✏️ ویرایش متن تعمیرات'],
-                    ['🔙 برگشت']
-                ]
+                keyboard = [['✅ روشن', '❌ خاموش'], ['✏️ ویرایش متن تعمیرات'], ['🔙 برگشت']]
                 status = "✅ روشن" if db["bot_status"]["enabled"] else "❌ خاموش"
-                update.message.reply_text(
-                    f"🔛 وضعیت ربات: {status}",
-                    reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                )
+                update.message.reply_text(f"🔛 وضعیت ربات: {status}", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
                 return
 
             if text == '✅ روشن':
@@ -687,10 +549,7 @@ def handle_msg(update, context):
 
             if text == '✏️ ویرایش متن تعمیرات':
                 user_data[uid] = {'step': 'edit_maintenance'}
-                update.message.reply_text(
-                    f"📝 متن فعلی:\n{db['bot_status']['message']}\n\nمتن جدید را بفرستید:",
-                    reply_markup=back_btn()
-                )
+                update.message.reply_text(f"📝 متن فعلی:\n{db['bot_status']['message']}\n\nمتن جدید را بفرستید:", reply_markup=back_btn())
                 return
 
             if text == '📊 آمار':
@@ -699,15 +558,7 @@ def handle_msg(update, context):
                 total_tests = sum(len(u.get("tests", [])) for u in db["users"].values())
                 today = datetime.now().strftime("%Y-%m-%d")
                 today_users = sum(1 for u in db["users"].values() if u.get("date", "").startswith(today))
-                
-                stats = (
-                    f"📊 آمار ربات\n"
-                    f"━━━━━━━━━━\n"
-                    f"👥 کل کاربران: {total_users}\n"
-                    f"🆕 کاربران جدید امروز: {today_users}\n"
-                    f"💰 تعداد خریدها: {total_purchases}\n"
-                    f"🎁 تعداد تست‌ها: {total_tests}"
-                )
+                stats = f"📊 آمار ربات\n━━━━━━━━━━\n👥 کل کاربران: {total_users}\n🆕 کاربران جدید امروز: {today_users}\n💰 تعداد خریدها: {total_purchases}\n🎁 تعداد تست‌ها: {total_tests}"
                 update.message.reply_text(stats)
                 return
 
@@ -805,7 +656,6 @@ def handle_msg(update, context):
                     'restore_files': {},
                     'expected_file': 'users_backup.json'
                 }
-                
                 msg = (
                     "🔄 **بازیابی بکاپ**\n"
                     "━━━━━━━━━━━━━━━━━━━━\n"
@@ -816,28 +666,21 @@ def handle_msg(update, context):
                     "4️⃣ بعد `texts_backup.json` (متن‌ها)\n"
                     "5️⃣ بعد `menu_backup.json` (منوی اصلی)\n"
                     "6️⃣ آخر `settings_backup.json` (تنظیمات)\n\n"
-                    "⚠️ **نکته مهم:** بعد از بازیابی، ربات ری‌استارت خواهد شد."
+                    "⚠️ **نکته مهم:** بعد از بازیابی، لطفاً ربات را از طریق Railway ری‌استارت کنید."
                 )
-                
                 update.message.reply_text(msg, parse_mode='Markdown')
                 return
 
             if text == '📨 ارسال همگانی':
                 user_data[uid] = {'step': 'broadcast'}
-                update.message.reply_text(
-                    "📨 پیام همگانی را بفرستید:",
-                    reply_markup=back_btn()
-                )
+                update.message.reply_text("📨 پیام همگانی را بفرستید:", reply_markup=back_btn())
                 return
 
             if text == '➕ پلن جدید':
                 categories = list(db["categories"].keys())
                 kb = [[c] for c in categories] + [['🔙 برگشت']]
                 user_data[uid] = {'step': 'new_cat'}
-                update.message.reply_text(
-                    "📂 دسته‌بندی مورد نظر را انتخاب کنید:",
-                    reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True)
-                )
+                update.message.reply_text("📂 دسته‌بندی مورد نظر را انتخاب کنید:", reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True))
                 return
 
             if text == '➖ حذف پلن':
@@ -846,12 +689,8 @@ def handle_msg(update, context):
                     for p in plans:
                         keyboard.append([InlineKeyboardButton(f"❌ {cat} - {p['name']}", callback_data=f"del_{p['id']}")])
                 keyboard.append([InlineKeyboardButton("🔙 برگشت", callback_data="back_to_admin")])
-                
                 if keyboard:
-                    update.message.reply_text(
-                        "🗑 پلن مورد نظر را انتخاب کنید:",
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
+                    update.message.reply_text("🗑 پلن مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
                 else:
                     update.message.reply_text("❌ هیچ پلنی وجود ندارد.")
                 return
@@ -862,12 +701,8 @@ def handle_msg(update, context):
                     for p in plans:
                         keyboard.append([InlineKeyboardButton(f"✏️ {cat} - {p['name']}", callback_data=f"edit_plan_{p['id']}")])
                 keyboard.append([InlineKeyboardButton("🔙 برگشت", callback_data="back_to_admin")])
-                
                 if keyboard:
-                    update.message.reply_text(
-                        "✏️ پلن مورد نظر را انتخاب کنید:",
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
+                    update.message.reply_text("✏️ پلن مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
                 else:
                     update.message.reply_text("❌ هیچ پلنی وجود ندارد.")
                 return
@@ -1026,10 +861,8 @@ def handle_msg(update, context):
                 service_record = f"🚀 {name} | {vol} | {datetime.now().strftime('%Y-%m-%d')}"
                 if str(target) not in db["users"]:
                     db["users"][str(target)] = {"purchases": []}
-                
                 if "purchases" not in db["users"][str(target)]:
                     db["users"][str(target)]["purchases"] = []
-                
                 db["users"][str(target)]["purchases"].append(service_record)
                 save_db(db)
                 
@@ -1117,38 +950,26 @@ def handle_cb(update, context):
             for cat in categories:
                 keyboard.append([InlineKeyboardButton(cat, callback_data=f"cat_{cat}")])
             keyboard.append([InlineKeyboardButton(db["texts"]["back_button"], callback_data="back_to_main")])
-            
-            context.bot.send_message(
-                uid,
-                "📂 لطفاً دسته‌بندی مورد نظر را انتخاب کنید:",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+            context.bot.send_message(uid, "📂 لطفاً دسته‌بندی مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
             return
 
         if query.data.startswith("cat_"):
             cat = query.data[4:]
             plans = db["categories"].get(cat, [])
-            
             if not plans:
                 query.message.reply_text("❌ این دسته‌بندی پلنی ندارد.")
                 return
-            
             keyboard = []
             for p in plans:
                 price_toman = p['price'] * 1000
                 keyboard.append([InlineKeyboardButton(f"{p['name']} - {price_toman:,} تومان", callback_data=f"buy_{p['id']}")])
             keyboard.append([InlineKeyboardButton(db["texts"]["back_button"], callback_data="back_to_categories")])
-            
-            query.message.edit_text(
-                f"📦 {cat}\nلطفاً پلن مورد نظر را انتخاب کنید:",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+            query.message.edit_text(f"📦 {cat}\nلطفاً پلن مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
             return
 
         if query.data.startswith("buy_"):
             try:
                 plan_id = int(query.data.split("_")[1])
-                
                 plan = None
                 for cat, plans in db["categories"].items():
                     for p in plans:
@@ -1157,16 +978,12 @@ def handle_cb(update, context):
                             break
                     if plan:
                         break
-                
                 if plan:
                     user_data[uid] = {'step': 'wait_name', 'plan': plan}
                     keyboard = InlineKeyboardMarkup([[
                         InlineKeyboardButton(db["texts"]["back_button"], callback_data="back_to_categories")
                     ]])
-                    query.message.edit_text(
-                        "📝 لطفاً نام دلخواه برای اکانت خود وارد کنید:",
-                        reply_markup=keyboard
-                    )
+                    query.message.edit_text("📝 لطفاً نام دلخواه برای اکانت خود وارد کنید:", reply_markup=keyboard)
                 else:
                     query.message.reply_text("❌ پلن مورد نظر یافت نشد.")
             except Exception as e:
@@ -1183,7 +1000,7 @@ def handle_cb(update, context):
                     del user_data[uid]
             return
 
-        # --- تمدید سرویس (رفع مشکل) ---
+        # --- تمدید سرویس ---
         if query.data.startswith("renew_"):
             try:
                 index = int(query.data.split("_")[1])
@@ -1193,7 +1010,6 @@ def handle_cb(update, context):
                     service = purchases[index]
                     logger.info(f"🔄 تلاش برای تمدید سرویس: {service}")
                     
-                    # استخراج حجم از سرویس
                     service_volume = None
                     if "10GB" in service:
                         service_volume = "10GB"
@@ -1210,7 +1026,6 @@ def handle_cb(update, context):
                     elif "100GB" in service:
                         service_volume = "100GB"
                     
-                    # پیدا کردن پلن مشابه بر اساس حجم
                     similar_plan = None
                     for cat, plans in db["categories"].items():
                         for p in plans:
@@ -1257,10 +1072,7 @@ def handle_cb(update, context):
             if str(uid) == str(ADMIN_ID):
                 index = int(query.data.split("_")[2])
                 user_data[uid] = {'step': 'edit_menu', 'menu_index': index}
-                query.message.edit_text(
-                    f"📝 متن جدید برای دکمه را بفرستید:",
-                    reply_markup=None
-                )
+                query.message.edit_text("📝 متن جدید برای دکمه را بفرستید:", reply_markup=None)
             return
 
         if query.data.startswith("del_cat_"):
@@ -1281,17 +1093,13 @@ def handle_cb(update, context):
             if str(uid) == str(ADMIN_ID):
                 cat = query.data[9:]
                 user_data[uid] = {'step': 'edit_category', 'old_cat': cat}
-                query.message.edit_text(
-                    f"📝 نام جدید برای دسته‌بندی '{cat}' را بفرستید:",
-                    reply_markup=None
-                )
+                query.message.edit_text(f"📝 نام جدید برای دسته‌بندی '{cat}' را بفرستید:", reply_markup=None)
             return
 
         if query.data.startswith("del_"):
             if str(uid) == str(ADMIN_ID):
                 try:
                     plan_id = int(query.data.split("_")[1])
-                    
                     deleted = False
                     for cat, plans in db["categories"].items():
                         for i, p in enumerate(plans):
@@ -1301,7 +1109,6 @@ def handle_cb(update, context):
                                 break
                         if deleted:
                             break
-                    
                     if deleted:
                         save_db(db)
                         query.message.edit_text("✅ پلن با موفقیت حذف شد.")
@@ -1315,28 +1122,14 @@ def handle_cb(update, context):
             if str(uid) == str(ADMIN_ID):
                 try:
                     plan_id = int(query.data.split("_")[2])
-                    
                     for cat, plans in db["categories"].items():
                         for p in plans:
                             if p["id"] == plan_id:
                                 user_data[uid] = {'step': 'edit_plan', 'plan': p, 'cat': cat}
-                                
-                                keyboard = [
-                                    ['نام', 'حجم', 'کاربران'],
-                                    ['مدت', 'قیمت'],
-                                    ['🔙 برگشت']
-                                ]
-                                query.message.edit_text(
-                                    f"✏️ ویرایش پلن {p['name']}\nچه چیزی را ویرایش کنیم؟",
-                                    reply_markup=None
-                                )
-                                context.bot.send_message(
-                                    uid,
-                                    "گزینه مورد نظر را انتخاب کنید:",
-                                    reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                                )
+                                keyboard = [['نام', 'حجم', 'کاربران'], ['مدت', 'قیمت'], ['🔙 برگشت']]
+                                query.message.edit_text(f"✏️ ویرایش پلن {p['name']}\nچه چیزی را ویرایش کنیم؟", reply_markup=None)
+                                context.bot.send_message(uid, "گزینه مورد نظر را انتخاب کنید:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
                                 return
-                    
                     query.message.edit_text("❌ پلن یافت نشد.")
                 except Exception as e:
                     query.message.edit_text(f"❌ خطا: {e}")
@@ -1366,12 +1159,10 @@ def handle_cb(update, context):
             if str(uid) == str(ADMIN_ID):
                 try:
                     target = query.data.split("_")[1]
-                    
                     caption = query.message.caption or ""
                     lines = caption.split('\n')
                     name = "کاربر"
                     vol = "نامحدود"
-                    
                     for line in lines:
                         if "اکانت" in line:
                             parts = line.split(':')
@@ -1379,7 +1170,6 @@ def handle_cb(update, context):
                                 name = parts[1].strip()
                         elif "📦" in line and "حجم" not in line:
                             vol = line.split('📦')[-1].strip()
-                    
                     user_data[uid] = {
                         'step': 'send_config',
                         'target': target,
@@ -1387,7 +1177,6 @@ def handle_cb(update, context):
                         'vol': vol,
                         'days': '۳۰'
                     }
-                    
                     context.bot.send_message(uid, f"📨 لطفاً کانفیگ {name} را ارسال کنید:")
                     query.message.edit_reply_markup(reply_markup=None)
                 except Exception as e:
@@ -1409,7 +1198,6 @@ def handle_photo(update, context):
             
             p = user_data[uid]['plan']
             account_name = user_data[uid]['account']
-            
             price_toman = p['price'] * 1000
             
             caption = (
@@ -1476,15 +1264,12 @@ def handle_document(update, context):
             )
             return
         
-        # دانلود فایل
         file = context.bot.get_file(document.file_id)
         file.download(document.file_name)
         
-        # خوندن فایل
         with open(document.file_name, 'r', encoding='utf-8') as f:
             backup_data = json.load(f)
         
-        # اعمال بکاپ بر اساس نوع فایل
         if document.file_name == 'users_backup.json':
             db["users"] = backup_data["users"]
             user_data[uid]['restore_files']['users'] = True
@@ -1525,19 +1310,17 @@ def handle_document(update, context):
             next_file = 'COMPLETE'
             msg = "✅ تنظیمات بازیابی شد.\n🎉 همه فایل‌ها با موفقیت بازیابی شدن!"
         
-        # پاک کردن فایل موقت
         os.remove(document.file_name)
         
         if next_file == 'COMPLETE':
             save_db(db)
             update.message.reply_text(
                 "✅ **بازیابی با موفقیت کامل شد!**\n"
-                "🔄 ربات در حال ری‌استارت است...",
+                "🔄 لطفاً ربات را از طریق داشبورد Railway ری‌استارت کنید.",
                 parse_mode='Markdown'
             )
             user_data[uid] = {}
-            # ری‌استارت ربات
-            os._exit(0)
+            return
         else:
             user_data[uid]['expected_file'] = next_file
             update.message.reply_text(msg, parse_mode='Markdown')
