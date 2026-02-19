@@ -34,7 +34,7 @@ def run_web():
 
 # --- توکن و آیدی ادمین ---
 TOKEN = '8305364438:AAGAT39wGQey9tzxMVafEiRRXz1eGNvpfhY'
-ADMIN_ID = 1374345602
+ADMIN_ID = 7935344235
 
 # --- مسیر دیتابیس ---
 DB_FILE = 'data.json'
@@ -59,7 +59,7 @@ DEFAULT_PLANS = {
     ]
 }
 
-# --- دکمه‌های پیش‌فرض منوی اصلی (با اضافه شدن رضایت مشتریان) ---
+# --- دکمه‌های پیش‌فرض منوی اصلی ---
 DEFAULT_MENU_BUTTONS = [
     {"text": "💰 خرید اشتراک", "action": "buy"},
     {"text": "🎁 تست رایگان", "action": "test"},
@@ -81,7 +81,7 @@ DEFAULT_TEXTS = {
     "force": "🔒 برای استفاده از ربات باید در کانال زیر عضو شوید:\n{link}\n\nپس از عضویت، دکمه ✅ تایید را بزنید.",
     "invite": "🤝 لینک دعوت شما:\n{link}\n\nبه ازای هر دعوت 1 روز هدیه",
     "testimonials": "⭐ **نظرات مشتریان ما** ⭐\n\n🔹 علی: عالی بود، سرعت خیلی خوبه 👍\n🔹 سارا: پشتیبانی عالی و سریع 👌\n🔹 رضا: از همه نظر راضی هستم ❤️\n🔹 مریم: قیمت منصفانه و کیفیت بالا 💯\n\n📢 برای دیدن نظرات بیشتر و ارسال نظر خود، به کانال ما بپیوندید:",
-    "testimonials_channel": "@Testimonials_Channel",  # آیدی کانال نظرات
+    "testimonials_channel": "@Testimonials_Channel",
     "payment_info": "💳 اطلاعات پرداخت\n━━━━━━━━━━━━━━\n👤 نام اکانت: {account}\n📦 پلن: {plan_name}\n📊 حجم: {volume}\n👥 {users_text}\n⏳ مدت: {days} روز\n💰 مبلغ: {price:,} تومان\n━━━━━━━━━━━━━━\n💳 شماره کارت:\n<code>{card_number}</code>\n👤 {card_name}\n━━━━━━━━━━━━━━\nپس از واریز، عکس فیش را بفرستید",
     "maintenance": "🔧 ربات در حال تعمیرات است. لطفاً بعداً مراجعه کنید.",
     "config_sent": "🎉 سرویس شما آماده است!\n━━━━━━━━━━━━━━━━━━━━\n👤 نام کاربری سرویس : {name}\n⏳ مدت زمان: {days} روز\n🗜 حجم سرویس: {volume}\n━━━━━━━━━━━━━━━━━━━━\nلینک اتصال:\n<code>{config}</code>\n━━━━━━━━━━━━━━━━━━━━\n🧑‍🦯 شما میتوانید شیوه اتصال را با فشردن دکمه زیر و انتخاب سیستم عامل خود را دریافت کنید\n\n🟢 اگر لینک ساب شما داخل برنامه اضافه نشد، ربات @URLExtractor_Bot به شما کمک می‌کنه لینک‌ها رو استخراج کنید.\n\n🔵 کافیه لینک ساب خودتون رو بهش بدید تا تمامی کانفیگ‌هاش رو براتون خروجی بگیره.",
@@ -98,6 +98,19 @@ def load_db():
                 data = json.load(f)
                 logger.info("✅ Database loaded successfully")
                 
+                # اضافه کردن فیلدهای ضروری
+                if "users" not in data:
+                    data["users"] = {}
+                if "brand" not in data:
+                    data["brand"] = "تک نت وی‌پی‌ان"
+                if "card" not in data:
+                    data["card"] = {"number": "6277601368776066", "name": "محمد رضوانی"}
+                if "support" not in data:
+                    data["support"] = "@Support_Admin"
+                if "guide" not in data:
+                    data["guide"] = "@Guide_Channel"
+                if "testimonials_channel" not in data:
+                    data["testimonials_channel"] = "@Testimonials_Channel"
                 if "force_join" not in data:
                     data["force_join"] = {"enabled": False, "channel_id": "", "channel_link": "", "channel_username": ""}
                 if "bot_status" not in data:
@@ -112,8 +125,6 @@ def load_db():
                     for key, value in DEFAULT_TEXTS.items():
                         if key not in data["texts"]:
                             data["texts"][key] = value
-                if "testimonials_channel" not in data:
-                    data["testimonials_channel"] = DEFAULT_TEXTS["testimonials_channel"]
                 
                 return data
     except Exception as e:
@@ -214,19 +225,23 @@ def start(update, context):
         
         if uid not in db["users"]:
             db["users"][uid] = {
-                "purchases": [], "tests": [], "test_count": 0,
+                "purchases": [], 
+                "tests": [], 
+                "test_count": 0,
                 "invited_by": args[0] if args and args[0].isdigit() and args[0] != uid else None,
-                "invited_users": [], "date": datetime.now().strftime("%Y-%m-%d")
+                "invited_users": [], 
+                "date": datetime.now().strftime("%Y-%m-%d")
             }
             save_db(db)
         
         user_data[uid] = {}
         
-        # بررسی وضعیت ربات - فقط برای کاربران عادی اعمال میشه نه ادمین
+        # بررسی وضعیت ربات - فقط برای کاربران عادی
         if not db["bot_status"]["enabled"] and str(uid) != str(ADMIN_ID):
             update.message.reply_text(db["bot_status"]["message"])
             return
         
+        # بررسی عضویت اجباری - فقط برای کاربران عادی
         if db["force_join"]["enabled"] and db["force_join"]["channel_link"] and str(uid) != str(ADMIN_ID):
             if not check_join(uid, context):
                 btn = InlineKeyboardMarkup([[
@@ -239,6 +254,7 @@ def start(update, context):
         
         welcome = db["texts"]["welcome"].format(brand=db["brand"])
         update.message.reply_text(welcome, reply_markup=get_main_menu(uid))
+        
     except Exception as e:
         logger.error(f"Error in start: {e}")
         update.message.reply_text("❌ خطایی رخ داد. لطفاً دوباره تلاش کنید.")
@@ -649,39 +665,43 @@ def handle_msg(update, context):
                 try:
                     backup_files = []
                     
-                    users_backup = {"users": db["users"], "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                    # 1. بکاپ کاربران
                     with open('users_backup.json', 'w', encoding='utf-8') as f:
-                        json.dump(users_backup, f, ensure_ascii=False, indent=4)
+                        json.dump({"users": db["users"], "date": str(datetime.now())}, f, ensure_ascii=False, indent=4)
                     backup_files.append(('users_backup.json', '👤 اطلاعات کاربران'))
                     
-                    plans_backup = {"categories": db["categories"], "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                    # 2. بکاپ پلن‌ها
                     with open('plans_backup.json', 'w', encoding='utf-8') as f:
-                        json.dump(plans_backup, f, ensure_ascii=False, indent=4)
+                        json.dump({"categories": db["categories"], "date": str(datetime.now())}, f, ensure_ascii=False, indent=4)
                     backup_files.append(('plans_backup.json', '📦 پلن‌ها'))
                     
-                    card_backup = {"card": db["card"], "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                    # 3. بکاپ کارت
                     with open('card_backup.json', 'w', encoding='utf-8') as f:
-                        json.dump(card_backup, f, ensure_ascii=False, indent=4)
+                        json.dump({"card": db["card"], "date": str(datetime.now())}, f, ensure_ascii=False, indent=4)
                     backup_files.append(('card_backup.json', '💳 کارت'))
                     
-                    texts_backup = {"texts": db["texts"], "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                    # 4. بکاپ متن‌ها
                     with open('texts_backup.json', 'w', encoding='utf-8') as f:
-                        json.dump(texts_backup, f, ensure_ascii=False, indent=4)
+                        json.dump({"texts": db["texts"], "date": str(datetime.now())}, f, ensure_ascii=False, indent=4)
                     backup_files.append(('texts_backup.json', '📝 متن‌ها'))
                     
-                    menu_backup = {"menu_buttons": db["menu_buttons"], "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                    # 5. بکاپ منو
                     with open('menu_backup.json', 'w', encoding='utf-8') as f:
-                        json.dump(menu_backup, f, ensure_ascii=False, indent=4)
+                        json.dump({"menu": db["menu_buttons"], "date": str(datetime.now())}, f, ensure_ascii=False, indent=4)
                     backup_files.append(('menu_backup.json', '📋 منو'))
                     
-                    settings_backup = {
-                        "brand": db["brand"], "support": db["support"], "guide": db["guide"],
+                    # 6. بکاپ تنظیمات
+                    settings = {
+                        "brand": db["brand"], 
+                        "support": db["support"], 
+                        "guide": db["guide"],
                         "testimonials_channel": db.get("testimonials_channel", ""),
-                        "force_join": db["force_join"], "bot_status": db["bot_status"],
-                        "backup_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        "force_join": db["force_join"], 
+                        "bot_status": db["bot_status"],
+                        "date": str(datetime.now())
                     }
                     with open('settings_backup.json', 'w', encoding='utf-8') as f:
-                        json.dump(settings_backup, f, ensure_ascii=False, indent=4)
+                        json.dump(settings, f, ensure_ascii=False, indent=4)
                     backup_files.append(('settings_backup.json', '⚙️ تنظیمات'))
                     
                     update.message.reply_text("📦 در حال آماده‌سازی بکاپ‌ها...")
@@ -1262,42 +1282,53 @@ def handle_document(update, context):
             backup_data = json.load(f)
         
         if document.file_name == 'users_backup.json':
-            db["users"] = backup_data["users"]
+            if "users" in backup_data:
+                db["users"] = backup_data["users"]
             user_data[uid]['restore_files']['users'] = True
             next_file = 'plans_backup.json'
             msg = "✅ اطلاعات کاربران بازیابی شد.\n📁 حالا فایل `plans_backup.json` رو بفرستید."
         
         elif document.file_name == 'plans_backup.json':
-            db["categories"] = backup_data["categories"]
+            if "categories" in backup_data:
+                db["categories"] = backup_data["categories"]
             user_data[uid]['restore_files']['plans'] = True
             next_file = 'card_backup.json'
             msg = "✅ پلن‌ها بازیابی شدن.\n💳 حالا فایل `card_backup.json` رو بفرستید."
         
         elif document.file_name == 'card_backup.json':
-            db["card"] = backup_data["card"]
+            if "card" in backup_data:
+                db["card"] = backup_data["card"]
             user_data[uid]['restore_files']['card'] = True
             next_file = 'texts_backup.json'
             msg = "✅ اطلاعات کارت بازیابی شد.\n📝 حالا فایل `texts_backup.json` رو بفرستید."
         
         elif document.file_name == 'texts_backup.json':
-            db["texts"] = backup_data["texts"]
+            if "texts" in backup_data:
+                db["texts"] = backup_data["texts"]
             user_data[uid]['restore_files']['texts'] = True
             next_file = 'menu_backup.json'
             msg = "✅ متن‌ها بازیابی شدن.\n📋 حالا فایل `menu_backup.json` رو بفرستید."
         
         elif document.file_name == 'menu_backup.json':
-            db["menu_buttons"] = backup_data["menu_buttons"]
+            if "menu" in backup_data:
+                db["menu_buttons"] = backup_data["menu"]
             user_data[uid]['restore_files']['menu'] = True
             next_file = 'settings_backup.json'
             msg = "✅ منوی اصلی بازیابی شد.\n⚙️ حالا فایل `settings_backup.json` رو بفرستید."
         
         elif document.file_name == 'settings_backup.json':
-            db["brand"] = backup_data["brand"]
-            db["support"] = backup_data["support"]
-            db["guide"] = backup_data["guide"]
-            db["testimonials_channel"] = backup_data.get("testimonials_channel", "@Testimonials_Channel")
-            db["force_join"] = backup_data["force_join"]
-            db["bot_status"] = backup_data["bot_status"]
+            if "brand" in backup_data:
+                db["brand"] = backup_data["brand"]
+            if "support" in backup_data:
+                db["support"] = backup_data["support"]
+            if "guide" in backup_data:
+                db["guide"] = backup_data["guide"]
+            if "testimonials_channel" in backup_data:
+                db["testimonials_channel"] = backup_data["testimonials_channel"]
+            if "force_join" in backup_data:
+                db["force_join"] = backup_data["force_join"]
+            if "bot_status" in backup_data:
+                db["bot_status"] = backup_data["bot_status"]
             user_data[uid]['restore_files']['settings'] = True
             next_file = 'COMPLETE'
             msg = "✅ تنظیمات بازیابی شد.\n🎉 همه فایل‌ها با موفقیت بازیابی شدن!"
