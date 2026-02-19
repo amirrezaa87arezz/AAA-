@@ -10,7 +10,6 @@ import traceback
 import sys
 import signal
 import time
-import requests
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
@@ -38,7 +37,7 @@ def run_web():
 
 # --- توکن و آیدی ادمین ---
 TOKEN = '8305364438:AAGAT39wGQey9tzxMVafEiRRXz1eGNvpfhY'
-ADMIN_ID = 7935344235
+ADMIN_ID = 7935344235  # آیدی ادمین جدید
 
 # --- مسیر دیتابیس ---
 DB_FILE = 'data.json'
@@ -1336,17 +1335,28 @@ def handle_document(update, context):
                 db["bot_status"] = backup_data["bot_status"]
             user_data[uid]['restore_files']['settings'] = True
             next_file = 'COMPLETE'
-            msg = "✅ **بازیابی با موفقیت کامل شد!**\n🔄 ربات در حال ری‌استارت خودکار است... پس از چند ثانیه دوباره استارت بزنید."
+            msg = "✅ **بازیابی با موفقیت کامل شد!**\n🔄 ربات در حال ری‌استارت خودکار است..."
         
         os.remove(document.file_name)
         
         if next_file == 'COMPLETE':
             save_db(db)
-            update.message.reply_text(msg, parse_mode='Markdown')
+            
+            # ارسال پیام با انیمیشن سه نقطه
+            animation_msg = update.message.reply_text(msg + "\n⏳ لطفاً چند لحظه صبر کنید...", parse_mode='Markdown')
+            time.sleep(2)
+            
+            # به‌روزرسانی پیام
+            context.bot.edit_message_text(
+                chat_id=uid,
+                message_id=animation_msg.message_id,
+                text="✅ **ربات با موفقیت ری‌استارت شد!**\n🔄 اکنون می‌توانید از ربات استفاده کنید.",
+                parse_mode='Markdown'
+            )
+            
             user_data[uid] = {}
             logger.info("🔄 Automatic restart after backup restore...")
-            time.sleep(3)  # مهلت ۳ ثانیه برای ارسال پیام
-            # ری‌استارت از طریق Railway
+            time.sleep(3)
             os._exit(0)
             return
         else:
