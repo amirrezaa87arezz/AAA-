@@ -7,10 +7,7 @@ from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMa
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
 from datetime import datetime
 import traceback
-import sys
-import signal
 import time
-import requests
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
@@ -31,14 +28,17 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         pass
 
 def run_web():
-    port = int(os.environ.get('PORT', 8080))
-    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-    logger.info(f"✅ Web server started on port {port}")
-    server.serve_forever()
+    try:
+        port = int(os.environ.get('PORT', 8080))
+        server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+        logger.info(f"✅ Web server started on port {port}")
+        server.serve_forever()
+    except Exception as e:
+        logger.error(f"❌ Web server error: {e}")
 
 # --- توکن و آیدی ادمین ---
 TOKEN = '8305364438:AAGAT39wGQey9tzxMVafEiRRXz1eGNvpfhY'
-ADMIN_ID = 7935344235  # آیدی ادمین جدید
+ADMIN_ID = 7935344235
 
 # --- مسیر دیتابیس ---
 DB_FILE = 'data.json'
@@ -63,7 +63,6 @@ DEFAULT_PLANS = {
     ]
 }
 
-# --- دکمه‌های پیش‌فرض منوی اصلی ---
 DEFAULT_MENU_BUTTONS = [
     {"text": "💰 خرید اشتراک", "action": "buy"},
     {"text": "🎁 تست رایگان", "action": "test"},
@@ -76,7 +75,6 @@ DEFAULT_MENU_BUTTONS = [
     {"text": "⭐ رضایت مشتریان", "action": "testimonials"}
 ]
 
-# --- متن‌های پیش‌فرض برای همه بخش‌ها ---
 DEFAULT_TEXTS = {
     "welcome": "🔰 به {brand} خوش آمدید\n\n✅ فروش ویژه فیلترشکن\n✅ پشتیبانی 24 ساعته\n✅ نصب آسان",
     "support": "🆘 پشتیبانی: {support}",
@@ -92,8 +90,7 @@ DEFAULT_TEXTS = {
     "admin_panel": "🛠 پنل مدیریت",
     "back_button": "🔙 برگشت",
     "cancel": "❌ انصراف",
-    "btn_admin": "⚙️ مدیریت",
-    "restart_success": "✅ **ربات با موفقیت ری‌استارت شد!**\n🔄 همه چیز آماده است."
+    "btn_admin": "⚙️ مدیریت"
 }
 
 def load_db():
@@ -103,7 +100,6 @@ def load_db():
                 data = json.load(f)
                 logger.info("✅ Database loaded successfully")
                 
-                # اضافه کردن فیلدهای ضروری
                 if "users" not in data:
                     data["users"] = {}
                 if "brand" not in data:
@@ -149,16 +145,6 @@ def load_db():
         "bot_status": {"enabled": True, "message": DEFAULT_TEXTS["maintenance"]},
         "texts": DEFAULT_TEXTS.copy()
     }
-
-def save_db(data):
-    try:
-        with open(DB_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-        logger.info("💾 Database saved")
-        return True
-    except Exception as e:
-        logger.error(f"❌ Error saving database: {e}")
-        return False
 
 db = load_db()
 user_data = {}
@@ -241,12 +227,10 @@ def start(update, context):
         
         user_data[uid] = {}
         
-        # بررسی وضعیت ربات - فقط برای کاربران عادی
         if not db["bot_status"]["enabled"] and str(uid) != str(ADMIN_ID):
             update.message.reply_text(db["bot_status"]["message"])
             return
         
-        # بررسی عضویت اجباری - فقط برای کاربران عادی
         if db["force_join"]["enabled"] and db["force_join"]["channel_link"] and str(uid) != str(ADMIN_ID):
             if not check_join(uid, context):
                 btn = InlineKeyboardMarkup([[
@@ -272,12 +256,10 @@ def handle_msg(update, context):
         step = user_data.get(uid, {}).get('step')
         texts = db["texts"]
 
-        # بررسی وضعیت ربات - فقط برای کاربران عادی
         if not db["bot_status"]["enabled"] and str(uid) != str(ADMIN_ID):
             update.message.reply_text(db["bot_status"]["message"])
             return
 
-        # بررسی عضویت اجباری - فقط برای کاربران عادی
         if db["force_join"]["enabled"] and db["force_join"]["channel_link"] and str(uid) != str(ADMIN_ID):
             if not check_join(uid, context) and text != '/start':
                 btn = InlineKeyboardMarkup([[
@@ -665,44 +647,34 @@ def handle_msg(update, context):
                 update.message.reply_text(stats)
                 return
 
-            # --- بخش بکاپ‌گیری ---
             if text == '📦 بکاپ‌گیری':
                 try:
                     backup_files = []
                     
-                    # 1. بکاپ کاربران
                     with open('users_backup.json', 'w', encoding='utf-8') as f:
                         json.dump({"users": db["users"], "date": str(datetime.now())}, f, ensure_ascii=False, indent=4)
                     backup_files.append(('users_backup.json', '👤 اطلاعات کاربران'))
                     
-                    # 2. بکاپ پلن‌ها
                     with open('plans_backup.json', 'w', encoding='utf-8') as f:
                         json.dump({"categories": db["categories"], "date": str(datetime.now())}, f, ensure_ascii=False, indent=4)
                     backup_files.append(('plans_backup.json', '📦 پلن‌ها'))
                     
-                    # 3. بکاپ کارت
                     with open('card_backup.json', 'w', encoding='utf-8') as f:
                         json.dump({"card": db["card"], "date": str(datetime.now())}, f, ensure_ascii=False, indent=4)
                     backup_files.append(('card_backup.json', '💳 کارت'))
                     
-                    # 4. بکاپ متن‌ها
                     with open('texts_backup.json', 'w', encoding='utf-8') as f:
                         json.dump({"texts": db["texts"], "date": str(datetime.now())}, f, ensure_ascii=False, indent=4)
                     backup_files.append(('texts_backup.json', '📝 متن‌ها'))
                     
-                    # 5. بکاپ منو
                     with open('menu_backup.json', 'w', encoding='utf-8') as f:
                         json.dump({"menu": db["menu_buttons"], "date": str(datetime.now())}, f, ensure_ascii=False, indent=4)
                     backup_files.append(('menu_backup.json', '📋 منو'))
                     
-                    # 6. بکاپ تنظیمات
                     settings = {
-                        "brand": db["brand"], 
-                        "support": db["support"], 
-                        "guide": db["guide"],
+                        "brand": db["brand"], "support": db["support"], "guide": db["guide"],
                         "testimonials_channel": db.get("testimonials_channel", ""),
-                        "force_join": db["force_join"], 
-                        "bot_status": db["bot_status"],
+                        "force_join": db["force_join"], "bot_status": db["bot_status"],
                         "date": str(datetime.now())
                     }
                     with open('settings_backup.json', 'w', encoding='utf-8') as f:
@@ -1343,18 +1315,15 @@ def handle_document(update, context):
         if next_file == 'COMPLETE':
             save_db(db)
             
-            # ارسال پیام نهایی
-            final_msg = update.message.reply_text(
-                "✅ **ربات با موفقیت ری‌استارت شد!**\n"
-                "🔄 اکنون می‌توانید از ربات استفاده کنید.\n\n"
-                "📍 اگر ربات پاسخ نمی‌دهد، چند لحظه صبر کنید و دوباره /start را بزنید.",
+            update.message.reply_text(
+                "✅ **ربات با موفقیت بازیابی شد!**\n"
+                "🔄 لطفاً ۵ ثانیه صبر کنید و سپس /start را بزنید.",
                 parse_mode='Markdown'
             )
             
             user_data[uid] = {}
             logger.info("🔄 Restarting bot after backup restore...")
             
-            # خروج کامل برای ری‌استارت در Railway
             time.sleep(2)
             os._exit(0)
             return
@@ -1369,14 +1338,6 @@ def handle_document(update, context):
 def main():
     try:
         logger.info("🚀 Starting bot...")
-        
-        # ثبت signal handler برای ری‌استارت تمیز
-        def signal_handler(sig, frame):
-            logger.info("🛑 Stopping bot...")
-            sys.exit(0)
-        
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
         
         web_thread = Thread(target=run_web, daemon=True)
         web_thread.start()
