@@ -9,7 +9,6 @@ from datetime import datetime
 import traceback
 import time
 import sys
-import signal
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
@@ -65,7 +64,6 @@ DEFAULT_PLANS = {
     ]
 }
 
-# --- دکمه‌های پیش‌فرض منوی اصلی ---
 DEFAULT_MENU_BUTTONS = [
     {"text": "💰 خرید اشتراک", "action": "buy"},
     {"text": "🎁 تست رایگان", "action": "test"},
@@ -78,7 +76,6 @@ DEFAULT_MENU_BUTTONS = [
     {"text": "⭐ رضایت مشتریان", "action": "testimonials"}
 ]
 
-# --- متن‌های پیش‌فرض برای همه بخش‌ها ---
 DEFAULT_TEXTS = {
     "welcome": "🔰 به {brand} خوش آمدید\n\n✅ فروش ویژه فیلترشکن\n✅ پشتیبانی 24 ساعته\n✅ نصب آسان",
     "support": "🆘 پشتیبانی: {support}",
@@ -94,7 +91,7 @@ DEFAULT_TEXTS = {
     "admin_panel": "🛠 پنل مدیریت",
     "back_button": "🔙 برگشت",
     "cancel": "❌ انصراف",
-    "btn_admin": "⚙️ مدیریت"
+    "btn_admin": "⚙️ 관리"
 }
 
 def load_db():
@@ -150,6 +147,9 @@ def load_db():
         "texts": DEFAULT_TEXTS.copy()
     }
 
+db = load_db()
+user_data = {}
+
 def save_db(data):
     try:
         with open(DB_FILE, 'w', encoding='utf-8') as f:
@@ -159,9 +159,6 @@ def save_db(data):
     except Exception as e:
         logger.error(f"❌ Error saving database: {e}")
         return False
-
-db = load_db()
-user_data = {}
 
 def get_main_menu(uid):
     buttons = db["menu_buttons"]
