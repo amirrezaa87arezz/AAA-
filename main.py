@@ -8,7 +8,6 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryH
 from datetime import datetime
 import traceback
 import time
-import sys
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
@@ -64,6 +63,7 @@ DEFAULT_PLANS = {
     ]
 }
 
+# --- دکمه‌های پیش‌فرض منوی اصلی ---
 DEFAULT_MENU_BUTTONS = [
     {"text": "💰 خرید اشتراک", "action": "buy"},
     {"text": "🎁 تست رایگان", "action": "test"},
@@ -76,6 +76,7 @@ DEFAULT_MENU_BUTTONS = [
     {"text": "⭐ رضایت مشتریان", "action": "testimonials"}
 ]
 
+# --- متن‌های پیش‌فرض برای همه بخش‌ها ---
 DEFAULT_TEXTS = {
     "welcome": "🔰 به {brand} خوش آمدید\n\n✅ فروش ویژه فیلترشکن\n✅ پشتیبانی 24 ساعته\n✅ نصب آسان",
     "support": "🆘 پشتیبانی: {support}",
@@ -91,7 +92,7 @@ DEFAULT_TEXTS = {
     "admin_panel": "🛠 پنل مدیریت",
     "back_button": "🔙 برگشت",
     "cancel": "❌ انصراف",
-    "btn_admin": "⚙️ 관리"
+    "btn_admin": "⚙️ مدیریت"
 }
 
 def load_db():
@@ -147,9 +148,6 @@ def load_db():
         "texts": DEFAULT_TEXTS.copy()
     }
 
-db = load_db()
-user_data = {}
-
 def save_db(data):
     try:
         with open(DB_FILE, 'w', encoding='utf-8') as f:
@@ -159,6 +157,9 @@ def save_db(data):
     except Exception as e:
         logger.error(f"❌ Error saving database: {e}")
         return False
+
+db = load_db()
+user_data = {}
 
 def get_main_menu(uid):
     buttons = db["menu_buttons"]
@@ -730,7 +731,7 @@ def handle_msg(update, context):
                     "4️⃣ بعد `texts_backup.json` (متن‌ها)\n"
                     "5️⃣ بعد `menu_backup.json` (منوی اصلی)\n"
                     "6️⃣ آخر `settings_backup.json` (تنظیمات)\n\n"
-                    "⚠️ **نکته مهم:** بعد از اتمام بازیابی، ربات به طور خودکار ری‌استارت خواهد شد."
+                    "✅ **بعد از اتمام بازیابی، لطفاً ربات را یک بار ری‌استارت کنید.**"
                 )
                 update.message.reply_text(msg, parse_mode='Markdown')
                 return
@@ -1324,7 +1325,7 @@ def handle_document(update, context):
                 db["bot_status"] = backup_data["bot_status"]
             user_data[uid]['restore_files']['settings'] = True
             next_file = 'COMPLETE'
-            msg = "✅ **بازیابی با موفقیت کامل شد!**\n🔄 ربات در حال ری‌استارت خودکار است...\n⏳ لطفاً ۵ ثانیه صبر کنید."
+            msg = "✅ **بازیابی با موفقیت کامل شد!**\n\n🔴 **نکته مهم:** لطفاً ربات را از طریق Railway یک بار ری‌استارت کنید."
         
         os.remove(document.file_name)
         
@@ -1335,11 +1336,8 @@ def handle_document(update, context):
             update.message.reply_text(msg, parse_mode='Markdown')
             
             user_data[uid] = {}
-            logger.info("🔄 Restarting bot after backup restore...")
+            logger.info("✅ Backup restored successfully. Manual restart required.")
             
-            # بستن اتصالات و خروج
-            time.sleep(2)
-            os._exit(0)
             return
         else:
             user_data[uid]['expected_file'] = next_file
