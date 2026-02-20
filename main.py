@@ -8,9 +8,6 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryH
 from datetime import datetime
 import traceback
 import time
-import sys
-import signal
-import subprocess
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
@@ -140,7 +137,7 @@ def load_db():
     return {
         "users": {},
         "brand": "تک نت وی‌پی‌ان",
-        "card": {"number": "6277601368776066", "name": "محمد رضوانі"},
+        "card": {"number": "6277601368776066", "name": "محمد رضوانی"},
         "support": "@Support_Admin",
         "guide": "@Guide_Channel",
         "testimonials_channel": "@Testimonials_Channel",
@@ -151,9 +148,6 @@ def load_db():
         "texts": DEFAULT_TEXTS.copy()
     }
 
-db = load_db()
-user_data = {}
-
 def save_db(data):
     try:
         with open(DB_FILE, 'w', encoding='utf-8') as f:
@@ -163,6 +157,9 @@ def save_db(data):
     except Exception as e:
         logger.error(f"❌ Error saving database: {e}")
         return False
+
+db = load_db()
+user_data = {}
 
 def get_main_menu(uid):
     buttons = db["menu_buttons"]
@@ -1328,7 +1325,7 @@ def handle_document(update, context):
                 db["bot_status"] = backup_data["bot_status"]
             user_data[uid]['restore_files']['settings'] = True
             next_file = 'COMPLETE'
-            msg = "✅ **بازیابی با موفقیت کامل شد!**\n🔄 ربات در حال راه‌اندازی مجدد است..."
+            msg = "✅ **بازیابی با موفقیت کامل شد!**\n🔄 ربات در حال ری‌استارت خودکار است...\n⏳ لطفاً ۵ ثانیه صبر کنید."
         
         os.remove(document.file_name)
         
@@ -1336,12 +1333,7 @@ def handle_document(update, context):
             save_db(db)
             
             # ارسال پیام نهایی
-            update.message.reply_text(
-                "✅ **بازیابی با موفقیت کامل شد!**\n"
-                "🔄 ربات در حال ری‌استارت خودکار است...\n"
-                "⏳ لطفاً ۵ ثانیه صبر کنید.",
-                parse_mode='Markdown'
-            )
+            update.message.reply_text(msg, parse_mode='Markdown')
             
             user_data[uid] = {}
             logger.info("🔄 Restarting bot after backup restore...")
