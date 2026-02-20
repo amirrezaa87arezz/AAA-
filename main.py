@@ -38,7 +38,7 @@ def run_web():
 
 # --- توکن و آیدی ادمین ---
 TOKEN = '8305364438:AAGAT39wGQey9tzxMVafEiRRXz1eGNvpfhY'
-ADMIN_ID = 1374345602
+ADMIN_ID = 7935344235
 
 # --- مسیر دیتابیس ---
 DB_FILE = 'data.json'
@@ -182,11 +182,12 @@ def get_admin_menu():
         ['📋 مدیریت منو', '📦 مدیریت دسته‌ها'],
         ['➕ پلن جدید', '➖ حذف پلن', '✏️ ویرایش پلن'],
         ['💳 ویرایش کارت', '📝 ویرایش متن‌ها'],
-        ['👤 ویرایش پشتیبان', '📢 ویرایش کانال نظرات'],
-        ['🔒 عضویت اجباری', '🏷 ویرایش برند'],
-        ['🔛 وضعیت ربات', '📊 آمار'],
-        ['📦 بکاپ‌گیری', '🔄 بازیابی بکاپ'],
-        ['📨 ارسال همگانی', db["texts"]["back_button"]]
+        ['👤 ویرایش پشتیبان', '📢 ویرایش کانال آموزش'],
+        ['📢 ویرایش کانال نظرات', '🏷 ویرایش برند'],
+        ['🔒 عضویت اجباری', '🔛 وضعیت ربات'],
+        ['📊 آمار', '📦 بکاپ‌گیری'],
+        ['🔄 بازیابی بکاپ', '📨 ارسال همگانی'],
+        [db["texts"]["back_button"]]
     ]
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
 
@@ -538,6 +539,22 @@ def handle_msg(update, context):
             if text == '👤 ویرایش پشتیبان':
                 user_data[uid] = {'step': 'support'}
                 update.message.reply_text("👤 آیدی پشتیبان را بفرستید:", reply_markup=back_btn())
+                return
+
+            if text == '📢 ویرایش کانال آموزش':
+                user_data[uid] = {'step': 'edit_guide'}
+                current = db.get("guide", "@Guide_Channel")
+                update.message.reply_text(
+                    f"📢 آیدی فعلی کانال آموزش: {current}\n\nآیدی جدید را بفرستید (مثال: @Channel_ID):",
+                    reply_markup=back_btn()
+                )
+                return
+
+            if step == 'edit_guide':
+                db["guide"] = text
+                save_db(db)
+                update.message.reply_text("✅ کانال آموزش با موفقیت ویرایش شد!", reply_markup=get_admin_menu())
+                user_data[uid] = {}
                 return
 
             if text == '📢 ویرایش کانال نظرات':
@@ -1059,50 +1076,89 @@ def handle_cb(update, context):
                 
                 if index < len(purchases):
                     service = purchases[index]
+                    logger.info(f"🔄 تلاش برای تمدید سرویس: {service}")
                     
+                    # روش اول: پیدا کردن بر اساس حجم
                     service_volume = None
-                    if "10GB" in service:
-                        service_volume = "10GB"
-                    elif "20GB" in service:
-                        service_volume = "20GB"
-                    elif "30GB" in service:
-                        service_volume = "30GB"
-                    elif "40GB" in service:
-                        service_volume = "40GB"
-                    elif "50GB" in service:
-                        service_volume = "50GB"
-                    elif "60GB" in service:
-                        service_volume = "60GB"
-                    elif "100GB" in service:
-                        service_volume = "100GB"
+                    volume_list = ["10GB", "20GB", "30GB", "40GB", "50GB", "60GB", "100GB"]
+                    
+                    for vol in volume_list:
+                        if vol in service:
+                            service_volume = vol
+                            break
                     
                     similar_plan = None
-                    for cat, plans in db["categories"].items():
-                        for p in plans:
-                            if p['volume'] == service_volume:
-                                similar_plan = p
+                    
+                    # روش اول: بر اساس حجم
+                    if service_volume:
+                        for cat, plans in db["categories"].items():
+                            for p in plans:
+                                if p['volume'] == service_volume:
+                                    similar_plan = p
+                                    logger.info(f"✅ پلن مشابه با حجم پیدا شد: {p['name']}")
+                                    break
+                            if similar_plan:
                                 break
-                        if similar_plan:
-                            break
+                    
+                    # روش دوم: بر اساس کلمه (اگه با حجم پیدا نکرد)
+                    if not similar_plan:
+                        for cat, plans in db["categories"].items():
+                            for p in plans:
+                                # چک کردن اسم پلن توی سرویس
+                                for word in p['name'].split():
+                                    if len(word) > 3 and word in service:
+                                        similar_plan = p
+                                        logger.info(f"✅ پلن مشابه با اسم پیدا شد: {p['name']}")
+                                        break
+                                if similar_plan:
+                                    break
+                            if similar_plan:
+                                break
+                    
+                    # روش سوم: اولین پلن با کمترین قیمت (اگه هیچکدوم پیدا نشد)
+                    if not similar_plan:
+                        all_plans = []
+                        for cat, plans in db["categories"].items():
+                            all_plans.extend(plans)
+                        
+                        if all_plans:
+                            # ارزان‌ترین پلن رو انتخاب کن
+                            similar_plan = min(all_plans, key=lambda x: x['price'])
+                            logger.info(f"✅ ارزان‌ترین پلن به عنوان پیش‌فرض انتخاب شد: {similar_plan['name']}")
                     
                     if similar_plan:
                         user_data[uid] = {'step': 'wait_name', 'plan': similar_plan}
                         keyboard = InlineKeyboardMarkup([[
                             InlineKeyboardButton(db["texts"]["back_button"], callback_data="back_to_categories")
                         ]])
-                        query.message.edit_text(
-                            f"🔄 تمدید سرویس\n📦 پلن: {similar_plan['name']}\n💰 قیمت: {similar_plan['price'] * 1000:,} تومان\n\n📝 لطفاً نام اکانت را وارد کنید:",
-                            reply_markup=keyboard
+                        
+                        # ساخت پیام مناسب
+                        price_toman = similar_plan['price'] * 1000
+                        service_short = service[:50] + "..." if len(service) > 50 else service
+                        
+                        msg = (
+                            f"🔄 **تمدید سرویس**\n"
+                            f"━━━━━━━━━━━━━━━━━━━━\n"
+                            f"📌 سرویس قبلی:\n`{service_short}`\n\n"
+                            f"📦 پلن پیشنهادی: {similar_plan['name']}\n"
+                            f"💰 قیمت: {price_toman:,} تومان\n"
+                            f"━━━━━━━━━━━━━━━━━━━━\n"
+                            f"📝 لطفاً نام اکانت را وارد کنید:"
                         )
+                        
+                        query.message.edit_text(msg, parse_mode='Markdown', reply_markup=keyboard)
                     else:
-                        query.message.reply_text("❌ پلن مشابه برای تمدید یافت نشد.")
+                        query.message.reply_text(
+                            "❌ پلن مشابه برای تمدید یافت نشد.\n"
+                            "لطفاً از خرید جدید استفاده کنید یا با پشتیبانی تماس بگیرید."
+                        )
                         if uid in user_data:
                             del user_data[uid]
                 else:
                     query.message.reply_text("❌ سرویس مورد نظر یافت نشد.")
             except Exception as e:
                 logger.error(f"❌ Error in renew: {e}")
-                query.message.reply_text(f"❌ خطا: {e}")
+                query.message.reply_text(f"❌ خطا در تمدید: {e}")
             return
 
         if query.data.startswith("del_menu_"):
