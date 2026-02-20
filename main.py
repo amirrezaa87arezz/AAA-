@@ -8,6 +8,8 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryH
 from datetime import datetime
 import traceback
 import time
+import sys
+import signal
 
 # --- تنظیمات لاگینگ ---
 logging.basicConfig(
