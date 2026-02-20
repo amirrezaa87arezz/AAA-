@@ -38,7 +38,7 @@ def run_web():
 
 # --- توکن و آیدی ادمین ---
 TOKEN = '8305364438:AAGAT39wGQey9tzxMVafEiRRXz1eGNvpfhY'
-ADMIN_ID = 1374345602
+ADMIN_ID = 7935344235
 
 # --- مسیر دیتابیس ---
 DB_FILE = 'data.json'
@@ -301,17 +301,36 @@ def handle_msg(update, context):
                     keyboard.append([InlineKeyboardButton(texts["back_button"], callback_data="back_to_main")])
                     update.message.reply_text("📂 لطفاً دسته‌بندی مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
                     return
+                
                 elif action == "test":
-                    if db["users"][uid]["test_count"] >= 1:
-                        update.message.reply_text("❌ شما قبلاً تست دریافت کرده‌اید.")
-                        return
-                    db["users"][uid]["test_count"] += 1
-                    db["users"][uid]["tests"].append(datetime.now().strftime("%Y-%m-%d"))
-                    save_db(db)
-                    update.message.reply_text(db["texts"]["test"])
-                    btn = InlineKeyboardMarkup([[InlineKeyboardButton("📤 ارسال تست", callback_data=f"test_{uid}_{name}")]])
-                    context.bot.send_message(ADMIN_ID, f"🎁 درخواست تست جدید\n👤 {name}\n🆔 {uid}", reply_markup=btn)
+                    try:
+                        if "test_count" not in db["users"][uid]:
+                            db["users"][uid]["test_count"] = 0
+                        
+                        if db["users"][uid]["test_count"] >= 1:
+                            update.message.reply_text("❌ شما قبلاً یک بار تست دریافت کرده‌اید و امکان دریافت تست مجدد وجود ندارد.")
+                            return
+                        
+                        db["users"][uid]["test_count"] += 1
+                        if "tests" not in db["users"][uid]:
+                            db["users"][uid]["tests"] = []
+                        db["users"][uid]["tests"].append(datetime.now().strftime("%Y-%m-%d"))
+                        save_db(db)
+                        
+                        update.message.reply_text(db["texts"]["test"])
+                        
+                        admin_btn = InlineKeyboardMarkup([[
+                            InlineKeyboardButton("📤 ارسال تست", callback_data=f"test_{uid}_{name}")
+                        ]])
+                        
+                        admin_msg = f"🎁 درخواست تست جدید\n👤 {name}\n🆔 {uid}"
+                        context.bot.send_message(ADMIN_ID, admin_msg, reply_markup=admin_btn)
+                        
+                    except Exception as e:
+                        logger.error(f"❌ Error in test action: {e}")
+                        update.message.reply_text("❌ خطا در ثبت تست. لطفاً دوباره تلاش کنید.")
                     return
+                
                 elif action == "services":
                     purchases = db["users"][uid].get("purchases", [])
                     tests = db["users"][uid].get("tests", [])
@@ -328,6 +347,7 @@ def handle_msg(update, context):
                             msg += f"{i}. {t}\n"
                     update.message.reply_text(msg)
                     return
+                
                 elif action == "renew":
                     purchases = db["users"][uid].get("purchases", [])
                     if not purchases:
@@ -339,6 +359,7 @@ def handle_msg(update, context):
                     keyboard.append([InlineKeyboardButton(texts["back_button"], callback_data="back_to_main")])
                     update.message.reply_text("🔁 سرویس مورد نظر را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
                     return
+                
                 elif action == "profile":
                     user = db["users"][uid]
                     purchases_count = len(user.get("purchases", []))
@@ -362,18 +383,22 @@ def handle_msg(update, context):
                     )
                     update.message.reply_text(profile_text, parse_mode='HTML')
                     return
+                
                 elif action == "support":
                     update.message.reply_text(db["texts"]["support"].format(support=db["support"]))
                     return
+                
                 elif action == "guide":
                     update.message.reply_text(db["texts"]["guide"].format(guide=db["guide"]))
                     return
+                
                 elif action == "invite":
                     bot_username = context.bot.get_me().username
                     link = f"https://t.me/{bot_username}?start={uid}"
                     msg = db["texts"]["invite"].format(link=link)
                     update.message.reply_text(msg)
                     return
+                
                 elif action == "testimonials":
                     channel = db.get("testimonials_channel", "@Testimonials_Channel")
                     btn = InlineKeyboardMarkup([[
@@ -1332,7 +1357,6 @@ def handle_document(update, context):
         if next_file == 'COMPLETE':
             save_db(db)
             
-            # ارسال پیام نهایی
             update.message.reply_text(msg, parse_mode='Markdown')
             
             user_data[uid] = {}
@@ -1351,11 +1375,9 @@ def main():
     try:
         logger.info("🚀 Starting bot...")
         
-        # وب سرور
         web_thread = Thread(target=run_web, daemon=True)
         web_thread.start()
         
-        # ربات
         updater = Updater(TOKEN, use_context=True)
         dp = updater.dispatcher
         
