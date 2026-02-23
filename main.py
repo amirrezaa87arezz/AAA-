@@ -63,6 +63,7 @@ DEFAULT_PLANS = {
     ]
 }
 
+# --- دکمه‌های پیش‌فرض منوی اصلی ---
 DEFAULT_MENU_BUTTONS = [
     {"text": "💰 خرید اشتراک", "action": "buy"},
     {"text": "🎁 تست رایگان", "action": "test"},
@@ -75,6 +76,7 @@ DEFAULT_MENU_BUTTONS = [
     {"text": "⭐ رضایت مشتریان", "action": "testimonials"}
 ]
 
+# --- متن‌های پیش‌فرض برای همه بخش‌ها ---
 DEFAULT_TEXTS = {
     "welcome": "🔰 به {brand} خوش آمدید\n\n✅ فروش ویژه فیلترشکن\n✅ پشتیبانی 24 ساعته\n✅ نصب آسان",
     "support": "🆘 پشتیبانی: {support}",
@@ -893,7 +895,7 @@ def handle_msg(update, context):
                     if text == 'نام':
                         user_data[uid]['edit_field'] = 'name'
                         user_data[uid]['step'] = 'edit_plan_field'
-                        update.message.reply_text(f"📝 نام جدید برای پلن '{plan['name']}':", reply_markup=back_btn())
+                        update.message.reply_text(f"📝 نام جدید برای پلن '{plan['name']}' را وارد کنید:", reply_markup=back_btn())
                     
                     elif text == 'حجم':
                         user_data[uid]['edit_field'] = 'volume'
@@ -918,7 +920,12 @@ def handle_msg(update, context):
                     elif text == '🔙 برگشت':
                         user_data[uid] = {}
                         update.message.reply_text("🛠 پنل مدیریت:", reply_markup=get_admin_menu())
+                    
+                    else:
+                        update.message.reply_text("❌ گزینه نامعتبر!", reply_markup=back_btn())
+                        
                 except Exception as e:
+                    logger.error(f"Error in edit_plan: {e}")
                     update.message.reply_text(f"❌ خطا: {e}")
                 return
 
@@ -928,38 +935,75 @@ def handle_msg(update, context):
                     cat = user_data[uid]['cat']
                     field = user_data[uid]['edit_field']
                     
+                    found = False
                     for i, p in enumerate(db["categories"][cat]):
                         if p["id"] == plan["id"]:
+                            found = True
                             if field == 'users':
                                 if text.isdigit() or text == "نامحدود":
                                     db["categories"][cat][i][field] = text if text == "نامحدود" else int(text)
                                     save_db(db)
-                                    update.message.reply_text("✅ پلن با موفقیت ویرایش شد!", reply_markup=get_admin_menu())
+                                    
+                                    result_msg = (
+                                        f"✅ پلن با موفقیت ویرایش شد!\n\n"
+                                        f"📌 دسته: {cat}\n"
+                                        f"📝 نام: {db['categories'][cat][i]['name']}\n"
+                                        f"📦 حجم: {db['categories'][cat][i]['volume']}\n"
+                                        f"👥 کاربران: {db['categories'][cat][i]['users']}\n"
+                                        f"⏳ مدت: {db['categories'][cat][i]['days']} روز\n"
+                                        f"💰 قیمت: {db['categories'][cat][i]['price'] * 1000:,} تومان"
+                                    )
+                                    
+                                    update.message.reply_text(result_msg, reply_markup=get_admin_menu())
                                     user_data[uid] = {}
                                 else:
                                     update.message.reply_text("❌ لطفاً عدد یا 'نامحدود' وارد کنید!")
-                                return
                             
                             elif field in ['days', 'price']:
                                 try:
-                                    db["categories"][cat][i][field] = int(text)
+                                    val = int(text)
+                                    db["categories"][cat][i][field] = val
                                     save_db(db)
-                                    update.message.reply_text("✅ پلن با موفقیت ویرایش شد!", reply_markup=get_admin_menu())
+                                    
+                                    result_msg = (
+                                        f"✅ پلن با موفقیت ویرایش شد!\n\n"
+                                        f"📌 دسته: {cat}\n"
+                                        f"📝 نام: {db['categories'][cat][i]['name']}\n"
+                                        f"📦 حجم: {db['categories'][cat][i]['volume']}\n"
+                                        f"👥 کاربران: {db['categories'][cat][i]['users']}\n"
+                                        f"⏳ مدت: {db['categories'][cat][i]['days']} روز\n"
+                                        f"💰 قیمت: {db['categories'][cat][i]['price'] * 1000:,} تومان"
+                                    )
+                                    
+                                    update.message.reply_text(result_msg, reply_markup=get_admin_menu())
                                     user_data[uid] = {}
                                 except:
                                     update.message.reply_text("❌ لطفاً عدد وارد کنید!")
-                                return
                             
                             else:
                                 db["categories"][cat][i][field] = text
                                 save_db(db)
-                                update.message.reply_text("✅ پلن با موفقیت ویرایش شد!", reply_markup=get_admin_menu())
+                                
+                                result_msg = (
+                                    f"✅ پلن با موفقیت ویرایش شد!\n\n"
+                                    f"📌 دسته: {cat}\n"
+                                    f"📝 نام: {db['categories'][cat][i]['name']}\n"
+                                    f"📦 حجم: {db['categories'][cat][i]['volume']}\n"
+                                    f"👥 کاربران: {db['categories'][cat][i]['users']}\n"
+                                    f"⏳ مدت: {db['categories'][cat][i]['days']} روز\n"
+                                    f"💰 قیمت: {db['categories'][cat][i]['price'] * 1000:,} تومان"
+                                )
+                                
+                                update.message.reply_text(result_msg, reply_markup=get_admin_menu())
                                 user_data[uid] = {}
-                                return
+                            break
                     
-                    update.message.reply_text("❌ خطا در ویرایش پلن!")
-                    user_data[uid] = {}
+                    if not found:
+                        update.message.reply_text("❌ خطا در ویرایش پلن!")
+                        user_data[uid] = {}
+                        
                 except Exception as e:
+                    logger.error(f"Error in edit_plan_field: {e}")
                     update.message.reply_text(f"❌ خطا: {e}")
                 return
 
